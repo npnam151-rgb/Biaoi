@@ -13,16 +13,47 @@ import {
 import {
   ReportType,
   REPORT_TABS,
-  ReportData,
-  REPORT_CHECKLIST_MAP,
 } from './types';
 
 // Components
 import { HomePage } from './components/HomePage';
-import { ReportForm } from './components/ReportForm';
-import { ReportPreview } from './components/ReportPreview';
 import { ImageExportModal } from './components/ImageExportModal';
 import { WebhookSettingsModal } from './components/WebhookSettingsModal';
+
+// 1. VẬN HÀNH (ORIGINAL VH)
+import { ReportForm as VHReportForm } from './reports/van_hanh/ReportForm';
+import { ReportPreview as VHReportPreview } from './reports/van_hanh/ReportPreview';
+import { CHECKLIST_ITEMS as VH_CHECKLIST_ITEMS, ReportData as VHReportData } from './reports/van_hanh/types';
+
+// 2. BẾP (ORIGINAL CS-Bep)
+import { ReportForm as BepReportForm } from './reports/bep/ReportForm';
+import { ReportPreview as BepReportPreview } from './reports/bep/ReportPreview';
+import { CHECKLIST_ITEMS as BEP_CHECKLIST_ITEMS, ReportData as BepReportData } from './reports/bep/types';
+
+// 3. BAR (ORIGINAL CS-BC-Bar)
+import { ReportForm as BarReportForm } from './reports/bar/ReportForm';
+import { ReportPreview as BarReportPreview } from './reports/bar/ReportPreview';
+import { CHECKLIST_ITEMS as BAR_CHECKLIST_ITEMS, ReportData as BarReportData } from './reports/bar/types';
+
+// 4. CX (ORIGINAL CS)
+import { ReportForm as CXReportForm } from './reports/cx/ReportForm';
+import { ReportPreview as CXReportPreview } from './reports/cx/ReportPreview';
+import { CHECKLIST_ITEMS as CX_CHECKLIST_ITEMS, ReportData as CXReportData } from './reports/cx/types';
+
+// 5. SALE SỈ (ORIGINAL CS-BC-Sale-s-)
+import { ReportForm as SaleSiReportForm } from './reports/sale_si/ReportForm';
+import { ReportPreview as SaleSiReportPreview } from './reports/sale_si/ReportPreview';
+import { SingleVisitReportData, createDefaultVisitReport } from './reports/sale_si/types';
+
+// 6. QL KÊNH (ORIGINAL BC-Qu-n-l-k-nh)
+import { ChannelManagerReportForm as QLKenhReportForm } from './reports/ql_kenh/ReportForm';
+import { ChannelManagerReportPreview as QLKenhReportPreview } from './reports/ql_kenh/ReportPreview';
+import { ChannelManagerReportData, createDefaultChannelReport } from './reports/ql_kenh/types';
+
+// 7. TQL (ORIGINAL BC-TQL-2)
+import { ReportForm as TQLReportForm } from './reports/tql/ReportForm';
+import { ReportPreview as TQLReportPreview } from './reports/tql/ReportPreview';
+import { TQLReportData, createInitialReportData, STORES, SYSTEM_COLUMNS, STORE_COLUMNS, getSystemTime } from './reports/tql/types';
 
 const DEFAULT_WEBHOOK_URL =
   'https://script.google.com/macros/s/AKfycbxWKIm74psex5-61MTbeSZKTyA5_K8GBE2MzZ3iOcn7bu1ekM7NqvGXDOJLmz88iDGQ/exec';
@@ -49,34 +80,9 @@ function getRouteFromLocation(): { view: 'home' | 'report'; reportId?: ReportTyp
   return { view: 'home' };
 }
 
-// Khởi tạo state dữ liệu chuẩn cho tất cả các báo cáo
-function createInitialReportsState(): Record<ReportType, ReportData> {
-  const today = new Date().toISOString().split('T')[0];
-  const state: Partial<Record<ReportType, ReportData>> = {};
-
-  REPORT_TABS.forEach((tab) => {
-    const checklist = REPORT_CHECKLIST_MAP[tab.id];
-    state[tab.id] = {
-      location: '',
-      date: today,
-      reporter: '',
-      items: checklist.map((item) => ({
-        id: item.id,
-        value: '',
-      })),
-    };
-  });
-
-  return state as Record<ReportType, ReportData>;
-}
-
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState<{ view: 'home' | 'report'; reportId?: ReportType }>(
     getRouteFromLocation
-  );
-
-  const [reportsData, setReportsData] = useState<Record<ReportType, ReportData>>(
-    createInitialReportsState
   );
 
   const [webhookUrl, setWebhookUrl] = useState<string>(() => {
@@ -84,7 +90,65 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Export states
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // ==========================================
+  // DỮ LIỆU CỦA TỪNG BÁO CÁO (NGUYÊN BẢN GỐC)
+  // ==========================================
+  // 1. VH
+  const [vanHanhData, setVanHanhData] = useState<VHReportData>({
+    location: '',
+    date: todayStr,
+    reporter: '',
+    items: VH_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
+  });
+
+  // 2. Bếp
+  const [bepData, setBepData] = useState<BepReportData>({
+    location: '',
+    date: todayStr,
+    reporter: '',
+    items: BEP_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
+  });
+
+  // 3. Bar
+  const [barData, setBarData] = useState<BarReportData>({
+    location: '',
+    date: todayStr,
+    reporter: '',
+    items: BAR_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
+  });
+
+  // 4. CX (Thang điểm và check)
+  const [cxData, setCxData] = useState<CXReportData>({
+    location: '',
+    date: todayStr,
+    reporter: '',
+    items: CX_CHECKLIST_ITEMS.map((item) => ({
+      id: item.id,
+      value: item.type === 'check' ? true : item.type === 'score' ? 10 : '',
+      notes: '',
+    })),
+  });
+
+  // 5. Sale Sỉ
+  const [saleSiData, setSaleSiData] = useState<SingleVisitReportData>(() =>
+    createDefaultVisitReport(localStorage.getItem('sale_si_reporter') || '', '1')
+  );
+
+  // 6. QL Kênh
+  const [qlKenhData, setQlKenhData] = useState<ChannelManagerReportData>(() =>
+    createDefaultChannelReport(
+      typeof window !== 'undefined'
+        ? localStorage.getItem('ql_kenh_manager_name') || localStorage.getItem('ql_kenh_sales_rep') || ''
+        : ''
+    )
+  );
+
+  // 7. TQL (6 cơ sở)
+  const [tqlData, setTqlData] = useState<TQLReportData>(createInitialReportData);
+
+  // Trạng thái xuất ảnh & lưu Sheet
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -92,6 +156,8 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [exportImageUrl, setExportImageUrl] = useState('');
   const [exportFileName, setExportFileName] = useState('');
+
+  // Refs xem trước chụp ảnh
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Routing
@@ -127,23 +193,9 @@ export default function App() {
 
   const activeReportId = currentRoute.reportId || 'van_hanh';
   const activeMeta = REPORT_TABS.find((tab) => tab.id === activeReportId) || REPORT_TABS[0];
-  const currentData = reportsData[activeReportId];
-  const currentChecklist = REPORT_CHECKLIST_MAP[activeReportId];
 
-  const handleDataChange = (newData: ReportData) => {
-    setReportsData((prev) => ({
-      ...prev,
-      [activeReportId]: newData,
-    }));
-  };
-
-  // Google Sheets Save
-  const saveToGoogleSheets = async (data: ReportData) => {
-    if (!webhookUrl) {
-      console.log('Chưa cấu hình Google Sheets Webhook URL. Bỏ qua bước lưu.');
-      return false;
-    }
-
+  // Helper map location
+  const mapLocation = (raw: string) => {
     const locationMap: Record<string, string> = {
       '94 Lò Đúc': '94LĐ',
       '96 Hồng Tiến': '96HT',
@@ -155,27 +207,166 @@ export default function App() {
       '12ĐT': '12BĐT',
       '12BĐT': '12BĐT',
     };
-    const mappedLocation = locationMap[data.location] || data.location;
+    return locationMap[raw] || raw;
+  };
 
-    const payload = {
-      sheetName: activeMeta.sheetName,
-      location: String(mappedLocation || ''),
-      date: String(data.date || ''),
-      reporter: String(data.reporter || ''),
-      items: data.items.map((item) => {
-        const def = currentChecklist.find((d) => d.id === item.id);
+  // Google Sheets Save theo đúng định dạng nguyên bản của từng project
+  const saveToGoogleSheets = async (): Promise<boolean> => {
+    if (!webhookUrl) {
+      console.log('Chưa cấu hình Google Sheets Webhook URL.');
+      return false;
+    }
+
+    let payload: any = null;
+
+    if (activeReportId === 'van_hanh') {
+      payload = {
+        sheetName: 'BC Vận hành',
+        location: String(mapLocation(vanHanhData.location) || ''),
+        date: String(vanHanhData.date || ''),
+        reporter: String(vanHanhData.reporter || ''),
+        items: vanHanhData.items.map((item) => {
+          const def = VH_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          return {
+            id: item.id,
+            title: String(def?.title || `Hạng mục ${item.id}`),
+            category: String(def?.category || ''),
+            value: String(item.value || ''),
+          };
+        }),
+      };
+    } else if (activeReportId === 'bep') {
+      payload = {
+        sheetName: 'BC Bếp',
+        location: String(mapLocation(bepData.location) || ''),
+        date: String(bepData.date || ''),
+        reporter: String(bepData.reporter || ''),
+        items: bepData.items.map((item) => {
+          const def = BEP_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          return {
+            id: item.id,
+            title: String(def?.title || `Hạng mục ${item.id}`),
+            category: String(def?.category || ''),
+            value: String(item.value || ''),
+          };
+        }),
+      };
+    } else if (activeReportId === 'bar') {
+      payload = {
+        sheetName: 'BC Bar',
+        location: String(mapLocation(barData.location) || ''),
+        date: String(barData.date || ''),
+        reporter: String(barData.reporter || ''),
+        items: barData.items.map((item) => {
+          const def = BAR_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          return {
+            id: item.id,
+            title: String(def?.title || `Hạng mục ${item.id}`),
+            category: String(def?.category || ''),
+            value: String(item.value || ''),
+          };
+        }),
+      };
+    } else if (activeReportId === 'cx') {
+      const totalScore = cxData.items
+        .filter((item) => {
+          const def = CX_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          return def?.type === 'score';
+        })
+        .reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+
+      payload = {
+        sheetName: 'BC CX',
+        location: cxData.location,
+        date: cxData.date,
+        reporter: cxData.reporter,
+        totalScore: totalScore,
+        items: cxData.items.map((item) => {
+          const def = CX_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          let formattedValue = item.value;
+          if (item.value === true) formattedValue = 'Thực hiện';
+          if (item.value === false) formattedValue = 'Không thực hiện';
+          return {
+            id: item.id,
+            title: def?.title || `Mục ${item.id}`,
+            value: formattedValue,
+            notes: item.notes || '',
+          };
+        }),
+      };
+    } else if (activeReportId === 'sale_si') {
+      payload = {
+        sheetName: 'BC sale sỉ',
+        date: saleSiData.date,
+        reporter: saleSiData.reporter,
+        visitOrder: saleSiData.visitOrder ? String(saleSiData.visitOrder).trim() : '1',
+        outletType: saleSiData.outletType || 'Điểm cũ',
+        restaurantName: saleSiData.restaurantName ? saleSiData.restaurantName.trim() : '',
+        address: saleSiData.address ? saleSiData.address.trim() : '',
+        evaluationOrProposal: saleSiData.evaluationOrProposal ? saleSiData.evaluationOrProposal.trim() : '',
+        stockBom30L: saleSiData.stockBom30L || '',
+        stockBom50L: saleSiData.stockBom50L || '',
+        stockKeg1L: saleSiData.stockKeg1L || '',
+        orderBom30L: saleSiData.orderBom30L || '',
+        orderBom50L: saleSiData.orderBom50L || '',
+        orderKeg1L: saleSiData.orderKeg1L || '',
+      };
+    } else if (activeReportId === 'ql_kenh') {
+      const activeSales = qlKenhData.sales.filter((s) => Boolean(s.salesRepName && s.salesRepName.trim() !== ''));
+      payload = {
+        sheetName: 'BC QL kênh',
+        date: qlKenhData.date,
+        managerName: qlKenhData.managerName ? qlKenhData.managerName.trim() : '',
+        reporter: qlKenhData.managerName ? qlKenhData.managerName.trim() : '',
+        potentialCustomers: qlKenhData.potentialCustomers ? qlKenhData.potentialCustomers.trim() : '',
+        decliningRiskCustomers: qlKenhData.decliningRiskCustomers ? qlKenhData.decliningRiskCustomers.trim() : '',
+        marketIssues: qlKenhData.marketIssues ? qlKenhData.marketIssues.trim() : '',
+        proposal: qlKenhData.proposal ? qlKenhData.proposal.trim() : '',
+        sales: activeSales.map((s, idx) => {
+          const cleanName = s.salesRepName.trim();
+          return {
+            id: s.id || idx + 1,
+            salesRepName: cleanName,
+            name: cleanName,
+            reporter: cleanName,
+            visitedCount: s.visitedCount ? String(s.visitedCount).trim() : '',
+            newCustomers: s.newCustomers ? s.newCustomers.trim() : '',
+            ordersCount: s.ordersCount ? s.ordersCount.trim() : '',
+            volume: s.volume ? s.volume.trim() : '',
+            situation: s.situation ? s.situation.trim() : '',
+          };
+        }),
+      };
+    } else if (activeReportId === 'tql') {
+      const systemValues = SYSTEM_COLUMNS.map((col) => tqlData.systemEvaluation[col.id] || '');
+      const otherOpinionValue = tqlData.systemEvaluation.y_kien_khac || '';
+      const storesList = STORES.map((s) => {
+        const storeVals = tqlData.stores[s.code] || {};
+        const storeValues = STORE_COLUMNS.map((col) => storeVals[col.id] || '');
         return {
-          id: item.id,
-          title: String(def?.title || `Hạng mục ${item.id}`),
-          category: String(def?.category || ''),
-          value: String(item.value || ''),
+          storeCode: s.code,
+          storeName: s.name,
+          systemValues,
+          storeValues,
+          otherOpinionValue,
+          values: [...systemValues, ...storeValues, otherOpinionValue],
         };
-      }),
-    };
+      });
+
+      payload = {
+        sheetName: 'BC TQL',
+        date: String(tqlData.date || ''),
+        time: String(tqlData.sendTime || getSystemTime()),
+        reporter: String(tqlData.reporter || ''),
+        location: 'Toàn hệ thống (6 cơ sở)',
+        systemEvaluation: tqlData.systemEvaluation,
+        storesList: storesList,
+        stores: tqlData.stores,
+      };
+    }
 
     try {
       setSheetStatus('saving');
-
       const fetchPromise = fetch(webhookUrl, {
         method: 'POST',
         mode: 'no-cors',
@@ -186,7 +377,7 @@ export default function App() {
       });
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 8000)
+        setTimeout(() => reject(new Error('Timeout')), 10000)
       );
 
       await Promise.race([fetchPromise, timeoutPromise]);
@@ -209,19 +400,25 @@ export default function App() {
     setSheetStatus('idle');
 
     try {
-      // 1. Lưu dữ liệu lên Google Sheets tương ứng với sheet đích
-      await saveToGoogleSheets(currentData);
-
+      await saveToGoogleSheets();
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // 2. Xuất ảnh
       const dataUrl = await toPng(previewRef.current, {
         quality: 1.0,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
       });
 
-      const fileName = `BaoCao_${activeMeta.shortName}_${currentData.location || 'CoSo'}_${currentData.date}.png`.replace(/\s+/g, '_');
+      let locationOrTarget = 'CoSo';
+      if (activeReportId === 'van_hanh') locationOrTarget = vanHanhData.location || 'CoSo';
+      else if (activeReportId === 'bep') locationOrTarget = bepData.location || 'CoSo';
+      else if (activeReportId === 'bar') locationOrTarget = barData.location || 'CoSo';
+      else if (activeReportId === 'cx') locationOrTarget = cxData.location || 'CoSo';
+      else if (activeReportId === 'sale_si') locationOrTarget = saleSiData.restaurantName || 'DiemBan';
+      else if (activeReportId === 'tql') locationOrTarget = 'ToanChuoi';
+      else if (activeReportId === 'ql_kenh') locationOrTarget = 'QLKenh';
+
+      const fileName = `BaoCao_${activeMeta.shortName}_${locationOrTarget}_${todayStr}.png`.replace(/\s+/g, '_');
       setExportImageUrl(dataUrl);
       setExportFileName(fileName);
       setIsModalOpen(true);
@@ -235,7 +432,7 @@ export default function App() {
           pixelRatio: 2,
           backgroundColor: '#ffffff',
         });
-        const fileName = `BaoCao_${activeMeta.shortName}_${currentData.location || 'CoSo'}_${currentData.date}.png`.replace(/\s+/g, '_');
+        const fileName = `BaoCao_${activeMeta.shortName}_${todayStr}.png`.replace(/\s+/g, '_');
         setExportImageUrl(dataUrl);
         setExportFileName(fileName);
         setIsModalOpen(true);
@@ -301,7 +498,7 @@ export default function App() {
     );
   }
 
-  // Trang Báo Cáo Riêng Biệt: GIỮ NGUYÊN 100% GIAO DIỆN & FORM GỐC
+  // Trang Báo Cáo Riêng Biệt: GIỮ NGUYÊN FORM GỐC 100% CỦA TỪNG PROJECT CŨ
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       {/* Header chuẩn giống hệt bản gốc */}
@@ -387,18 +584,40 @@ export default function App() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Cột trái: Form nhập liệu giống hệt bản gốc */}
+          {/* Cột trái: Form nhập liệu của báo cáo gốc */}
           <div className="space-y-6">
-            <ReportForm
-              data={currentData}
-              onChange={handleDataChange}
-              itemsDef={currentChecklist}
-              reporterLabel={activeMeta.reporterLabel}
-              reporterPlaceholder={activeMeta.reporterPlaceholder}
-            />
+            {activeReportId === 'van_hanh' && (
+              <VHReportForm data={vanHanhData} onChange={setVanHanhData} />
+            )}
+            {activeReportId === 'bep' && (
+              <BepReportForm data={bepData} onChange={setBepData} />
+            )}
+            {activeReportId === 'bar' && (
+              <BarReportForm data={barData} onChange={setBarData} />
+            )}
+            {activeReportId === 'cx' && (
+              <CXReportForm data={cxData} onChange={setCxData} />
+            )}
+            {activeReportId === 'sale_si' && (
+              <SaleSiReportForm
+                data={saleSiData}
+                onChange={setSaleSiData}
+                onReset={() => setSaleSiData(createDefaultVisitReport(saleSiData.reporter, '1'))}
+              />
+            )}
+            {activeReportId === 'ql_kenh' && (
+              <QLKenhReportForm
+                data={qlKenhData}
+                onChange={setQlKenhData}
+                onReset={() => setQlKenhData(createDefaultChannelReport(qlKenhData.managerName))}
+              />
+            )}
+            {activeReportId === 'tql' && (
+              <TQLReportForm data={tqlData} onChange={setTqlData} />
+            )}
           </div>
 
-          {/* Cột phải: Bản xem trước giống hệt bản gốc */}
+          {/* Cột phải: Bản xem trước của báo cáo gốc */}
           <div className="lg:sticky lg:top-24 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-800">Bản xem trước</h2>
@@ -409,13 +628,27 @@ export default function App() {
 
             <div className="bg-slate-200 p-2 sm:p-4 rounded-2xl overflow-x-auto shadow-inner border border-slate-300">
               <div className="w-[800px] min-w-[800px] mx-auto">
-                <ReportPreview
-                  data={currentData}
-                  itemsDef={currentChecklist}
-                  reportTitle={activeMeta.reportTitle}
-                  reporterLabel={activeMeta.reporterLabel}
-                  ref={previewRef}
-                />
+                {activeReportId === 'van_hanh' && (
+                  <VHReportPreview data={vanHanhData} ref={previewRef} />
+                )}
+                {activeReportId === 'bep' && (
+                  <BepReportPreview data={bepData} ref={previewRef} />
+                )}
+                {activeReportId === 'bar' && (
+                  <BarReportPreview data={barData} ref={previewRef} />
+                )}
+                {activeReportId === 'cx' && (
+                  <CXReportPreview data={cxData} ref={previewRef} />
+                )}
+                {activeReportId === 'sale_si' && (
+                  <SaleSiReportPreview data={saleSiData} ref={previewRef} />
+                )}
+                {activeReportId === 'ql_kenh' && (
+                  <QLKenhReportPreview data={qlKenhData} ref={previewRef} />
+                )}
+                {activeReportId === 'tql' && (
+                  <TQLReportPreview data={tqlData} ref={previewRef} />
+                )}
               </div>
             </div>
           </div>
