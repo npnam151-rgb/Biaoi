@@ -35,6 +35,11 @@ import { ReportForm as BarReportForm } from './reports/bar/ReportForm';
 import { ReportPreview as BarReportPreview } from './reports/bar/ReportPreview';
 import { CHECKLIST_ITEMS as BAR_CHECKLIST_ITEMS, ReportData as BarReportData } from './reports/bar/types';
 
+// 3.2. TỔNG BAR (ORIGINAL CS-BC-L-m)
+import { ReportForm as TongBarReportForm } from './reports/tong_bar/ReportForm';
+import { ReportPreview as TongBarReportPreview } from './reports/tong_bar/ReportPreview';
+import { CHECKLIST_ITEMS as TONG_BAR_CHECKLIST_ITEMS, ReportData as TongBarReportData } from './reports/tong_bar/types';
+
 // 4. CX (ORIGINAL CS)
 import { ReportForm as CXReportForm } from './reports/cx/ReportForm';
 import { ReportPreview as CXReportPreview } from './reports/cx/ReportPreview';
@@ -117,6 +122,12 @@ export default function App() {
     date: todayStr,
     reporter: '',
     items: BAR_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
+  });
+
+  // 3.2. Tổng Bar
+  const [tongBarData, setTongBarData] = useState<TongBarReportData>({
+    location: '',
+    items: TONG_BAR_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
   });
 
   // 4. CX (Thang điểm và check)
@@ -267,6 +278,31 @@ export default function App() {
           };
         }),
       };
+    } else if (activeReportId === 'tong_bar') {
+      const locationMap: Record<string, string> = {
+        '94 Lò Đúc': '94LĐ',
+        '96 Hồng Tiến': '96HT',
+        '98 Vũ Trọng Phụng': '98VTP',
+        '01 Đặng Dung': '01 ĐD',
+        '3D Nguyễn Văn Huyên': '3D NVH',
+        '12 Đào Tấn': '12 ĐT',
+        '12ĐT': '12 ĐT',
+      };
+      const mappedLocation = locationMap[tongBarData.location] || tongBarData.location;
+
+      payload = {
+        sheetName: 'BC Tổng Bar',
+        location: String(mappedLocation || ''),
+        items: tongBarData.items.map((item) => {
+          const def = TONG_BAR_CHECKLIST_ITEMS.find((d) => d.id === item.id);
+          return {
+            id: item.id,
+            title: String(def?.title || `Hạng mục ${item.id}`),
+            category: String(def?.category || ''),
+            value: String(item.value || ''),
+          };
+        }),
+      };
     } else if (activeReportId === 'cx') {
       const totalScore = cxData.items
         .filter((item) => {
@@ -338,11 +374,21 @@ export default function App() {
         }),
       };
     } else if (activeReportId === 'tql') {
-      const systemValues = SYSTEM_COLUMNS.map((col) => tqlData.systemEvaluation[col.id] || '');
-      const otherOpinionValue = tqlData.systemEvaluation.y_kien_khac || '';
-      const storesList = STORES.map((s) => {
+      const storesList = STORES.map((s, idx) => {
         const storeVals = tqlData.stores[s.code] || {};
-        const storeValues = STORE_COLUMNS.map((col) => storeVals[col.id] || '');
+        const sysVals = tqlData.systemEvaluation || {};
+        // CHỈ LƯU Ở DÒNG ĐẦU TIÊN (idx === 0)
+        const systemValues = SYSTEM_COLUMNS.map((col) => {
+          if (idx === 0) {
+            return String(sysVals[col.id] ?? storeVals[col.id] ?? '');
+          }
+          return '';
+        });
+        const storeValues = STORE_COLUMNS.map((col) => {
+          return String(storeVals[col.id] || '');
+        });
+        // Cột Ý KIẾN KHÁC: chỉ dòng đầu tiên có giá trị
+        const otherOpinionValue = idx === 0 ? String(sysVals.y_kien_khac || '') : '';
         return {
           storeCode: s.code,
           storeName: s.name,
@@ -413,6 +459,7 @@ export default function App() {
       if (activeReportId === 'van_hanh') locationOrTarget = vanHanhData.location || 'CoSo';
       else if (activeReportId === 'bep') locationOrTarget = bepData.location || 'CoSo';
       else if (activeReportId === 'bar') locationOrTarget = barData.location || 'CoSo';
+      else if (activeReportId === 'tong_bar') locationOrTarget = tongBarData.location || 'CoSo';
       else if (activeReportId === 'cx') locationOrTarget = cxData.location || 'CoSo';
       else if (activeReportId === 'sale_si') locationOrTarget = saleSiData.restaurantName || 'DiemBan';
       else if (activeReportId === 'tql') locationOrTarget = 'ToanChuoi';
@@ -595,6 +642,9 @@ export default function App() {
             {activeReportId === 'bar' && (
               <BarReportForm data={barData} onChange={setBarData} />
             )}
+            {activeReportId === 'tong_bar' && (
+              <TongBarReportForm data={tongBarData} onChange={setTongBarData} />
+            )}
             {activeReportId === 'cx' && (
               <CXReportForm data={cxData} onChange={setCxData} />
             )}
@@ -636,6 +686,9 @@ export default function App() {
                 )}
                 {activeReportId === 'bar' && (
                   <BarReportPreview data={barData} ref={previewRef} />
+                )}
+                {activeReportId === 'tong_bar' && (
+                  <TongBarReportPreview data={tongBarData} ref={previewRef} />
                 )}
                 {activeReportId === 'cx' && (
                   <CXReportPreview data={cxData} ref={previewRef} />

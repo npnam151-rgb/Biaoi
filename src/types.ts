@@ -2,6 +2,7 @@ export type ReportType =
   | 'van_hanh'
   | 'bep'
   | 'bar'
+  | 'tong_bar'
   | 'cx'
   | 'tql'
   | 'sale_si'
@@ -64,6 +65,20 @@ export const REPORT_TABS: ReportTabMeta[] = [
     color: 'cyan',
     category: 'Cơ sở & Vận hành',
     highlights: ['Nhiệt độ bảo quản bia & máy rót', 'Tồn kho bom 30L / 50L / Keg 1L', 'Vệ sinh đường ống & vòi rót'],
+  },
+  {
+    id: 'tong_bar',
+    path: '/tong-bar',
+    sheetName: 'BC Tổng Bar',
+    name: 'CS Báo Cáo Tổng Bar',
+    shortName: 'BC Tổng Bar',
+    reportTitle: 'BÁO CÁO TỔNG BAR',
+    desc: 'Chất lượng bia, kho lạnh, tủ ủ, tủ rót, nhân sự & hỏng hóc toàn chuỗi',
+    reporterLabel: 'Người báo cáo',
+    reporterPlaceholder: 'VD: Lâm (Tổng Bar)',
+    color: 'teal',
+    category: 'Cơ sở & Vận hành',
+    highlights: ['Thời gian đến & đi cơ sở', 'Nhiệt độ kho lạnh, tủ ủ, tủ rót', 'Công tác vận hành & trình độ rót bia', 'Hỏng hóc tồn đọng & sửa chữa trong ngày'],
   },
   {
     id: 'cx',
@@ -249,10 +264,28 @@ export const QL_KENH_CHECKLIST_ITEMS: ChecklistItemDef[] = [
   { id: 8, category: 'TỔNG KẾT THỊ TRƯỜNG', title: 'Đề xuất của Quản lý kênh', placeholder: 'Đề xuất hỗ trợ chính sách bán hàng, nhân sự sale...', example: 'Hỗ trợ POSM và dù che cho 3 điểm bán mới' },
 ];
 
+// 3.2. CHECKLIST BÁO CÁO TỔNG BAR
+export const TONG_BAR_CHECKLIST_ITEMS: ChecklistItemDef[] = [
+  { id: 101, category: 'Thời gian', title: 'Ngày & thời gian', placeholder: 'Ghi ngày và thời gian đến và đi', example: '18h - 22h 15/05' },
+  { id: 102, category: 'Chất lượng', title: 'Chất lượng bia', placeholder: 'Đánh giá về CL bia, hoặc có vđ gì về bia trong ngày', example: 'Bia ngon, không có cặn' },
+  { id: 103, category: 'Thiết bị', title: 'Đánh giá kho lạnh', placeholder: 'Ghi nhiệt độ kho và các vđ nếu có', example: '3 độ C, bình thường' },
+  { id: 104, category: 'Thiết bị', title: 'Đánh giá tủ ủ', placeholder: 'Ghi nhiệt độ tủ và các vđ nếu có', example: '2 độ C, ổn định' },
+  { id: 105, category: 'Thiết bị', title: 'Đánh giá tủ rót', placeholder: 'Ghi nhiệt độ tủ và các vđ nếu có', example: '1 độ C, vòi trơn tru' },
+  { id: 106, category: 'Thiết bị', title: 'Đánh giá tủ trưng bày', placeholder: 'Đánh giá về vệ sinh và trưng bày hàng', example: 'Sạch sẽ, gọn gàng, đủ hàng' },
+  { id: 107, category: 'Nhân sự', title: 'Công tác vận hành của nv bar', placeholder: 'Đánh giá tính thuần thục của nhân viên bar về công tác vận hành, xuất nhập, đặt hàng', example: 'Nhân viên mới còn lúng túng khi thay bom' },
+  { id: 108, category: 'Nhân sự', title: 'Công tác vệ sinh của bar', placeholder: 'Đánh giá việc giữ gìn vệ sinh và trưng bày của tất cả khu vực bar', example: 'Mặt bar hơi ướt, đã nhắc nhở' },
+  { id: 109, category: 'Nhân sự', title: 'Trình độ rót bia của bar', placeholder: 'Đạt hay Không đạt', example: 'Đạt, bọt đẹp' },
+  { id: 112, category: 'Vấn đề & Sửa chữa', title: 'Các vđ hỏng hóc của bar còn tồn đọng chờ xử lý', placeholder: 'Ghi nhận các vấn đề hỏng hóc', example: 'Hỏng đèn tủ lạnh' },
+  { id: 113, category: 'Vấn đề & Sửa chữa', title: 'Các vđ sửa chữa của bar khắc phục trong ngày', placeholder: 'Ghi nhận các vấn đề đã sửa', example: 'Đã thay vòi rót' },
+  { id: 110, category: 'Khác', title: 'Các cv hỗ trợ khác', placeholder: 'Các công việc hỗ trợ khác trong ca', example: 'Phục vụ bàn 5 lúc đông khách' },
+  { id: 111, category: 'Khác', title: 'Đề xuất', placeholder: 'Ghi lại các đề xuất', example: 'Nên trang bị thêm kẹp đá ở bar' },
+];
+
 export const REPORT_CHECKLIST_MAP: Record<ReportType, ChecklistItemDef[]> = {
   van_hanh: CHECKLIST_ITEMS,
   bep: BEP_CHECKLIST_ITEMS,
   bar: BAR_CHECKLIST_ITEMS,
+  tong_bar: TONG_BAR_CHECKLIST_ITEMS,
   cx: CX_CHECKLIST_ITEMS,
   tql: TQL_CHECKLIST_ITEMS,
   sale_si: SALE_SI_CHECKLIST_ITEMS,

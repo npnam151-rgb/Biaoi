@@ -8,6 +8,7 @@ import {
   Building2,
   ChefHat,
   Beer,
+  Wine,
   Star,
   Briefcase,
   Truck,
@@ -65,6 +66,8 @@ export function HomePage({ onSelectReport }: HomePageProps) {
         return <ChefHat className={iconClass} />;
       case 'bar':
         return <Beer className={iconClass} />;
+      case 'tong_bar':
+        return <Wine className={iconClass} />;
       case 'cx':
         return <Star className={iconClass} />;
       case 'tql':
@@ -85,6 +88,14 @@ export function HomePage({ onSelectReport }: HomePageProps) {
           hoverBorder: 'hover:border-indigo-400',
           btnBg: 'bg-indigo-600 hover:bg-indigo-700',
           glow: 'group-hover:shadow-indigo-100',
+        };
+      case 'teal':
+        return {
+          bgBadge: 'bg-teal-50 text-teal-800 border-teal-200',
+          bgIcon: 'bg-teal-600 text-white',
+          hoverBorder: 'hover:border-teal-400',
+          btnBg: 'bg-teal-600 hover:bg-teal-700',
+          glow: 'group-hover:shadow-teal-100',
         };
       case 'amber':
         return {
@@ -157,7 +168,7 @@ export function HomePage({ onSelectReport }: HomePageProps) {
           <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-slate-300">
             <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>7 Phân hệ chuẩn hóa</span>
+              <span>8 Phân hệ chuẩn hóa</span>
             </div>
             <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10">
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
