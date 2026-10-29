@@ -1,14 +1,23 @@
 import React from 'react';
-import { CHECKLIST_ITEMS, ReportData, ReportItem } from '../types';
-import { cn } from '../lib/utils';
-import { Check, X } from 'lucide-react';
+import { CHECKLIST_ITEMS, ChecklistItemDef, ReportData } from '../types';
 
 interface ReportFormProps {
   data: ReportData;
   onChange: (data: ReportData) => void;
+  itemsDef?: ChecklistItemDef[];
+  locationLabel?: string;
+  reporterLabel?: string;
+  reporterPlaceholder?: string;
 }
 
-export function ReportForm({ data, onChange }: ReportFormProps) {
+export function ReportForm({
+  data,
+  onChange,
+  itemsDef = CHECKLIST_ITEMS,
+  locationLabel = 'Cơ sở',
+  reporterLabel = 'Người báo cáo',
+  reporterPlaceholder = 'VD: Nguyễn Văn A',
+}: ReportFormProps) {
   const handleItemChange = (id: number, value: string) => {
     const newItems = data.items.map((item) =>
       item.id === id ? { ...item, value } : item
@@ -17,7 +26,7 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
   };
 
   // Group items by category
-  const categories = Array.from(new Set(CHECKLIST_ITEMS.map(item => item.category)));
+  const categories = Array.from(new Set(itemsDef.map((item) => item.category)));
 
   return (
     <div className="space-y-6">
@@ -25,7 +34,7 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Thông tin chung</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">Cơ sở</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">{locationLabel}</label>
             <select
               value={data.location}
               onChange={(e) => onChange({ ...data, location: e.target.value })}
@@ -50,13 +59,13 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">Người báo cáo</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1.5">{reporterLabel}</label>
             <input
               type="text"
               value={data.reporter}
               onChange={(e) => onChange({ ...data, reporter: e.target.value })}
               className="w-full px-4 py-3 md:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-              placeholder="VD: Nguyễn Văn A"
+              placeholder={reporterPlaceholder}
             />
           </div>
         </div>
@@ -68,8 +77,8 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
             {category}
           </h2>
           <div className="grid grid-cols-1 gap-4">
-            {CHECKLIST_ITEMS.filter(item => item.category === category).map((def) => {
-              const item = data.items.find((i) => i.id === def.id)!;
+            {itemsDef.filter((item) => item.category === category).map((def) => {
+              const item = data.items.find((i) => i.id === def.id) || { id: def.id, value: '' };
               return (
                 <div key={def.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-200 transition-colors">
                   <div className="mb-3">

@@ -14,29 +14,13 @@ import {
   ReportType,
   REPORT_TABS,
   ReportData,
-  CHECKLIST_ITEMS,
-  BepReportData,
-  BEP_CHECKLIST_ITEMS,
-  BarReportData,
-  BAR_CHECKLIST_ITEMS,
-  CXReportData,
-  CX_DEFAULT_ITEMS,
-  TQLReportData,
-  TQL_STORE_CODES,
-  SaleSiReportData,
-  QLKenhReportData,
+  REPORT_CHECKLIST_MAP,
 } from './types';
 
 // Components
 import { HomePage } from './components/HomePage';
 import { ReportForm } from './components/ReportForm';
 import { ReportPreview } from './components/ReportPreview';
-import { BepReportForm, BepReportPreview } from './components/reports/BepReport';
-import { BarReportForm, BarReportPreview } from './components/reports/BarReport';
-import { CXReportForm, CXReportPreview } from './components/reports/CXReport';
-import { TQLReportForm, TQLReportPreview } from './components/reports/TQLReport';
-import { SaleSiReportForm, SaleSiReportPreview } from './components/reports/SaleSiReport';
-import { QLKenhReportForm, QLKenhReportPreview } from './components/reports/QLKenhReport';
 import { ImageExportModal } from './components/ImageExportModal';
 import { WebhookSettingsModal } from './components/WebhookSettingsModal';
 
@@ -65,9 +49,34 @@ function getRouteFromLocation(): { view: 'home' | 'report'; reportId?: ReportTyp
   return { view: 'home' };
 }
 
+// Khởi tạo state dữ liệu chuẩn cho tất cả các báo cáo
+function createInitialReportsState(): Record<ReportType, ReportData> {
+  const today = new Date().toISOString().split('T')[0];
+  const state: Partial<Record<ReportType, ReportData>> = {};
+
+  REPORT_TABS.forEach((tab) => {
+    const checklist = REPORT_CHECKLIST_MAP[tab.id];
+    state[tab.id] = {
+      location: '',
+      date: today,
+      reporter: '',
+      items: checklist.map((item) => ({
+        id: item.id,
+        value: '',
+      })),
+    };
+  });
+
+  return state as Record<ReportType, ReportData>;
+}
+
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState<{ view: 'home' | 'report'; reportId?: ReportType }>(
     getRouteFromLocation
+  );
+
+  const [reportsData, setReportsData] = useState<Record<ReportType, ReportData>>(
+    createInitialReportsState
   );
 
   const [webhookUrl, setWebhookUrl] = useState<string>(() => {
@@ -75,15 +84,20 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Export states
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [sheetStatus, setSheetStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [exportImageUrl, setExportImageUrl] = useState('');
+  const [exportFileName, setExportFileName] = useState('');
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  // ==========================================
-  // ROUTING HANDLERS
-  // ==========================================
+  // Routing
   const navigateTo = useCallback((targetPath: string) => {
     window.history.pushState({}, '', targetPath);
-    const resolved = getRouteFromLocation();
-    setCurrentRoute(resolved);
+    setCurrentRoute(getRouteFromLocation());
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -106,139 +120,30 @@ export default function App() {
     }
   };
 
-  // ==========================================
-  // STATE CỦA TỪNG BÁO CÁO
-  // ==========================================
-  const [vanHanhData, setVanHanhData] = useState<ReportData>({
-    location: '',
-    date: todayStr,
-    reporter: '',
-    items: CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
-  });
-
-  const [bepData, setBepData] = useState<BepReportData>({
-    location: '',
-    date: todayStr,
-    reporter: '',
-    items: BEP_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
-  });
-
-  const [barData, setBarData] = useState<BarReportData>({
-    location: '',
-    date: todayStr,
-    reporter: '',
-    items: BAR_CHECKLIST_ITEMS.map((item) => ({ id: item.id, value: '' })),
-  });
-
-  const [cxData, setCxData] = useState<CXReportData>({
-    location: '',
-    date: todayStr,
-    reporter: '',
-    totalScore: 70,
-    items: CX_DEFAULT_ITEMS.map((item) => ({
-      ...item,
-      score: 10,
-      notes: '',
-    })),
-  });
-
-  const [tqlData, setTqlData] = useState<TQLReportData>({
-    date: todayStr,
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    reporter: '',
-    systemEvaluation: {
-      dt_toan_he_thong: '',
-      muc_tieu_ngay: '',
-      tang_giam_hom_truoc: '',
-      tong_luot_khach: '',
-      so_ban_phuc_vu: '',
-      dt_tb_khach: '',
-      xep_hang_dt: '',
-      y_kien_khac: '',
-    },
-    stores: TQL_STORE_CODES.reduce((acc, code) => {
-      acc[code] = {
-        hong_hoc_can_sua: '',
-        hang_muc_sua_trong_ngay: '',
-        xep_ban: '',
-        order_tu_van: '',
-        cham_soc_upsell: '',
-        toc_do_ra_do: '',
-        chuong_trinh_km: '',
-        ve_sinh: '',
-        vd_phat_sinh_pv: '',
-        cach_giai_quyet_pv: '',
-        tong_ns_di_lam: '',
-        ns_nghi_dot_xuat: '',
-        ns_nghi_han: '',
-        ns_moi: '',
-        ns_ho_tro: '',
-        phan_hoi_khach_bia: '',
-        vd_phat_sinh_bia: '',
-        cach_giai_quyet_bia: '',
-        xuat_ban_tiec: '',
-        mon_day: '',
-        mon_ban_chay: '',
-        phan_hoi_khach_mon: '',
-        vd_phat_sinh_mon: '',
-        cach_giai_quyet_mon: '',
-        dao_tao: '',
-        doi_ngoai: '',
-      };
-      return acc;
-    }, {} as Record<string, any>),
-  });
-
-  const [saleSiData, setSaleSiData] = useState<SaleSiReportData>({
-    date: todayStr,
-    reporter: '',
-    restaurantName: '',
-    address: '',
-    outletType: 'Điểm cũ',
-    visitOrder: '1',
-    stockBom30L: '',
-    stockBom50L: '',
-    stockKeg1L: '',
-    orderBom30L: '',
-    orderBom50L: '',
-    orderKeg1L: '',
-    evaluationOrProposal: '',
-  });
-
-  const [qlKenhData, setQlKenhData] = useState<QLKenhReportData>({
-    date: todayStr,
-    reporter: '',
-    potentialCustomers: '',
-    decliningRiskCustomers: '',
-    marketIssues: '',
-    proposal: '',
-    sales: [
-      { salesRepName: 'Sale 1', visitedCount: '', newCustomers: '', ordersCount: '', volume: '', situation: '' },
-      { salesRepName: 'Sale 2', visitedCount: '', newCustomers: '', ordersCount: '', volume: '', situation: '' },
-      { salesRepName: 'Sale 3', visitedCount: '', newCustomers: '', ordersCount: '', volume: '', situation: '' },
-    ],
-  });
-
-  // Export & sync states
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportSuccess, setExportSuccess] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [sheetStatus, setSheetStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [exportImageUrl, setExportImageUrl] = useState('');
-  const [exportFileName, setExportFileName] = useState('');
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  const activeReportId = currentRoute.reportId || 'van_hanh';
-  const activeMeta = REPORT_TABS.find((tab) => tab.id === activeReportId) || REPORT_TABS[0];
-
   const handleSaveWebhookUrl = (url: string) => {
     setWebhookUrl(url);
     localStorage.setItem(STORAGE_KEY_WEBHOOK, url);
   };
 
-  // Google Sheets Payload Builder
-  const buildSheetPayload = (tabId: ReportType) => {
+  const activeReportId = currentRoute.reportId || 'van_hanh';
+  const activeMeta = REPORT_TABS.find((tab) => tab.id === activeReportId) || REPORT_TABS[0];
+  const currentData = reportsData[activeReportId];
+  const currentChecklist = REPORT_CHECKLIST_MAP[activeReportId];
+
+  const handleDataChange = (newData: ReportData) => {
+    setReportsData((prev) => ({
+      ...prev,
+      [activeReportId]: newData,
+    }));
+  };
+
+  // Google Sheets Save
+  const saveToGoogleSheets = async (data: ReportData) => {
+    if (!webhookUrl) {
+      console.log('Chưa cấu hình Google Sheets Webhook URL. Bỏ qua bước lưu.');
+      return false;
+    }
+
     const locationMap: Record<string, string> = {
       '94 Lò Đúc': '94LĐ',
       '96 Hồng Tiến': '96HT',
@@ -250,145 +155,23 @@ export default function App() {
       '12ĐT': '12BĐT',
       '12BĐT': '12BĐT',
     };
+    const mappedLocation = locationMap[data.location] || data.location;
 
-    switch (tabId) {
-      case 'van_hanh': {
-        const mappedLoc = locationMap[vanHanhData.location] || vanHanhData.location;
+    const payload = {
+      sheetName: activeMeta.sheetName,
+      location: String(mappedLocation || ''),
+      date: String(data.date || ''),
+      reporter: String(data.reporter || ''),
+      items: data.items.map((item) => {
+        const def = currentChecklist.find((d) => d.id === item.id);
         return {
-          sheetName: 'BC Vận hành',
-          location: String(mappedLoc || ''),
-          date: String(vanHanhData.date || ''),
-          reporter: String(vanHanhData.reporter || ''),
-          items: vanHanhData.items.map((item) => {
-            const def = CHECKLIST_ITEMS.find((d) => d.id === item.id);
-            return {
-              id: item.id,
-              title: String(def?.title || `Hạng mục ${item.id}`),
-              category: String(def?.category || ''),
-              value: String(item.value || ''),
-            };
-          }),
+          id: item.id,
+          title: String(def?.title || `Hạng mục ${item.id}`),
+          category: String(def?.category || ''),
+          value: String(item.value || ''),
         };
-      }
-
-      case 'bep': {
-        const mappedLoc = locationMap[bepData.location] || bepData.location;
-        return {
-          sheetName: 'BC Bếp',
-          location: String(mappedLoc || ''),
-          date: String(bepData.date || ''),
-          reporter: String(bepData.reporter || ''),
-          items: bepData.items.map((item) => {
-            const def = BEP_CHECKLIST_ITEMS.find((d) => d.id === item.id);
-            return {
-              id: item.id,
-              title: String(def?.title || `Hạng mục ${item.id}`),
-              category: String(def?.category || ''),
-              value: String(item.value || ''),
-            };
-          }),
-        };
-      }
-
-      case 'bar': {
-        const mappedLoc = locationMap[barData.location] || barData.location;
-        return {
-          sheetName: 'BC Bar',
-          location: String(mappedLoc || ''),
-          date: String(barData.date || ''),
-          reporter: String(barData.reporter || ''),
-          items: barData.items.map((item) => {
-            const def = BAR_CHECKLIST_ITEMS.find((d) => d.id === item.id);
-            return {
-              id: item.id,
-              title: String(def?.title || `Hạng mục ${item.id}`),
-              category: String(def?.category || ''),
-              value: String(item.value || ''),
-            };
-          }),
-        };
-      }
-
-      case 'cx': {
-        const mappedLoc = locationMap[cxData.location] || cxData.location;
-        return {
-          sheetName: 'BC CX',
-          location: String(mappedLoc || ''),
-          date: String(cxData.date || ''),
-          reporter: String(cxData.reporter || ''),
-          totalScore: cxData.totalScore,
-          items: cxData.items.map((item) => ({
-            id: item.id,
-            title: item.title,
-            value: `${item.score}/10`,
-            notes: item.notes || '',
-          })),
-        };
-      }
-
-      case 'tql': {
-        return {
-          sheetName: 'BC TQL',
-          date: String(tqlData.date || ''),
-          time: String(tqlData.time || ''),
-          reporter: String(tqlData.reporter || ''),
-          systemEvaluation: tqlData.systemEvaluation,
-          stores: tqlData.stores,
-        };
-      }
-
-      case 'sale_si': {
-        return {
-          sheetName: 'BC sale sỉ',
-          date: String(saleSiData.date || ''),
-          reporter: String(saleSiData.reporter || ''),
-          restaurantName: String(saleSiData.restaurantName || ''),
-          address: String(saleSiData.address || ''),
-          outletType: saleSiData.outletType,
-          visitOrder: String(saleSiData.visitOrder || '1'),
-          stockBom30L: String(saleSiData.stockBom30L || ''),
-          stockBom50L: String(saleSiData.stockBom50L || ''),
-          stockKeg1L: String(saleSiData.stockKeg1L || ''),
-          orderBom30L: String(saleSiData.orderBom30L || ''),
-          orderBom50L: String(saleSiData.orderBom50L || ''),
-          orderKeg1L: String(saleSiData.orderKeg1L || ''),
-          evaluationOrProposal: String(saleSiData.evaluationOrProposal || ''),
-        };
-      }
-
-      case 'ql_kenh': {
-        return {
-          sheetName: 'BC QL kênh',
-          date: String(qlKenhData.date || ''),
-          reporter: String(qlKenhData.reporter || ''),
-          potentialCustomers: String(qlKenhData.potentialCustomers || ''),
-          decliningRiskCustomers: String(qlKenhData.decliningRiskCustomers || ''),
-          marketIssues: String(qlKenhData.marketIssues || ''),
-          proposal: String(qlKenhData.proposal || ''),
-          sales: qlKenhData.sales.map((s, idx) => ({
-            salesRepName: s.salesRepName || `Sale ${idx + 1}`,
-            visitedCount: s.visitedCount || '',
-            newCustomers: s.newCustomers || '',
-            ordersCount: s.ordersCount || '',
-            volume: s.volume || '',
-            situation: s.situation || '',
-          })),
-        };
-      }
-
-      default:
-        return null;
-    }
-  };
-
-  const saveToGoogleSheets = async (tabId: ReportType) => {
-    if (!webhookUrl) {
-      console.log('Chưa cấu hình Google Sheets Webhook URL. Bỏ qua bước lưu.');
-      return false;
-    }
-
-    const payload = buildSheetPayload(tabId);
-    if (!payload) return false;
+      }),
+    };
 
     try {
       setSheetStatus('saving');
@@ -407,7 +190,7 @@ export default function App() {
       );
 
       await Promise.race([fetchPromise, timeoutPromise]);
-      console.log('Đã gửi payload lên Google Sheets:', payload);
+      console.log('Đã gửi dữ liệu lên Google Sheets:', payload);
       setSheetStatus('success');
       return true;
     } catch (error) {
@@ -426,39 +209,33 @@ export default function App() {
     setSheetStatus('idle');
 
     try {
-      await saveToGoogleSheets(activeReportId);
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      // 1. Lưu dữ liệu lên Google Sheets tương ứng với sheet đích
+      await saveToGoogleSheets(currentData);
 
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 2. Xuất ảnh
       const dataUrl = await toPng(previewRef.current, {
         quality: 1.0,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
       });
 
-      let locationOrTarget = 'CoSo';
-      if (activeReportId === 'van_hanh') locationOrTarget = vanHanhData.location || 'CoSo';
-      else if (activeReportId === 'bep') locationOrTarget = bepData.location || 'CoSo';
-      else if (activeReportId === 'bar') locationOrTarget = barData.location || 'CoSo';
-      else if (activeReportId === 'cx') locationOrTarget = cxData.location || 'CoSo';
-      else if (activeReportId === 'sale_si') locationOrTarget = saleSiData.restaurantName || 'DiemBan';
-      else if (activeReportId === 'tql') locationOrTarget = 'ToanChuoi';
-      else if (activeReportId === 'ql_kenh') locationOrTarget = 'QLKenh';
-
-      const fileName = `BaoCao_${activeMeta.shortName}_${locationOrTarget}_${todayStr}.png`.replace(/\s+/g, '_');
+      const fileName = `BaoCao_${activeMeta.shortName}_${currentData.location || 'CoSo'}_${currentData.date}.png`.replace(/\s+/g, '_');
       setExportImageUrl(dataUrl);
       setExportFileName(fileName);
       setIsModalOpen(true);
       setExportSuccess(true);
-      setTimeout(() => setExportSuccess(false), 6000);
+      setTimeout(() => setExportSuccess(false), 5000);
     } catch (err) {
-      console.error('Export image failed:', err);
+      console.error('Failed to export image', err);
       try {
         const dataUrl = await toPng(previewRef.current, {
           quality: 1.0,
           pixelRatio: 2,
           backgroundColor: '#ffffff',
         });
-        const fileName = `BaoCao_${activeMeta.shortName}_${todayStr}.png`.replace(/\s+/g, '_');
+        const fileName = `BaoCao_${activeMeta.shortName}_${currentData.location || 'CoSo'}_${currentData.date}.png`.replace(/\s+/g, '_');
         setExportImageUrl(dataUrl);
         setExportFileName(fileName);
         setIsModalOpen(true);
@@ -473,11 +250,11 @@ export default function App() {
     }
   };
 
-  // Render Homepage
+  // Trang chủ
   if (currentRoute.view === 'home') {
     return (
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
-        {/* Home Header */}
+        {/* Header Trang Chủ */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
@@ -507,7 +284,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* Home Main Content */}
+        {/* Nội dung danh sách tất cả các báo cáo */}
         <div className="flex-1">
           <HomePage onSelectReport={handleSelectReport} />
         </div>
@@ -524,10 +301,10 @@ export default function App() {
     );
   }
 
-  // Render Individual Report View: GIỮ NGUYÊN 100% GIAO DIỆN GỐC (Không có nút về trang chủ hay báo cáo khác)
+  // Trang Báo Cáo Riêng Biệt: GIỮ NGUYÊN 100% GIAO DIỆN & FORM GỐC
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Header chuẩn y hệt bản gốc */}
+      {/* Header chuẩn giống hệt bản gốc */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -597,7 +374,7 @@ export default function App() {
             <div className="text-sm">
               <p className="font-semibold">
                 {sheetStatus === 'error'
-                  ? `Đã tạo ảnh, nhưng không thể kết nối lưu dữ liệu lên Google Sheets!`
+                  ? 'Đã tạo ảnh, nhưng không thể kết nối lưu dữ liệu lên Google Sheets!'
                   : `Đã tạo ảnh & lưu dữ liệu vào sheet "${activeMeta.sheetName}" thành công!`}
               </p>
               {sheetStatus === 'error' && (
@@ -610,32 +387,18 @@ export default function App() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Cột trái: Form nhập liệu của báo cáo */}
+          {/* Cột trái: Form nhập liệu giống hệt bản gốc */}
           <div className="space-y-6">
-            {activeReportId === 'van_hanh' && (
-              <ReportForm data={vanHanhData} onChange={setVanHanhData} />
-            )}
-            {activeReportId === 'bep' && (
-              <BepReportForm data={bepData} onChange={setBepData} />
-            )}
-            {activeReportId === 'bar' && (
-              <BarReportForm data={barData} onChange={setBarData} />
-            )}
-            {activeReportId === 'cx' && (
-              <CXReportForm data={cxData} onChange={setCxData} />
-            )}
-            {activeReportId === 'tql' && (
-              <TQLReportForm data={tqlData} onChange={setTqlData} />
-            )}
-            {activeReportId === 'sale_si' && (
-              <SaleSiReportForm data={saleSiData} onChange={setSaleSiData} />
-            )}
-            {activeReportId === 'ql_kenh' && (
-              <QLKenhReportForm data={qlKenhData} onChange={setQlKenhData} />
-            )}
+            <ReportForm
+              data={currentData}
+              onChange={handleDataChange}
+              itemsDef={currentChecklist}
+              reporterLabel={activeMeta.reporterLabel}
+              reporterPlaceholder={activeMeta.reporterPlaceholder}
+            />
           </div>
 
-          {/* Cột phải: Bản xem trước */}
+          {/* Cột phải: Bản xem trước giống hệt bản gốc */}
           <div className="lg:sticky lg:top-24 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-800">Bản xem trước</h2>
@@ -646,27 +409,13 @@ export default function App() {
 
             <div className="bg-slate-200 p-2 sm:p-4 rounded-2xl overflow-x-auto shadow-inner border border-slate-300">
               <div className="w-[800px] min-w-[800px] mx-auto">
-                {activeReportId === 'van_hanh' && (
-                  <ReportPreview data={vanHanhData} ref={previewRef} />
-                )}
-                {activeReportId === 'bep' && (
-                  <BepReportPreview data={bepData} ref={previewRef} />
-                )}
-                {activeReportId === 'bar' && (
-                  <BarReportPreview data={barData} ref={previewRef} />
-                )}
-                {activeReportId === 'cx' && (
-                  <CXReportPreview data={cxData} ref={previewRef} />
-                )}
-                {activeReportId === 'tql' && (
-                  <TQLReportPreview data={tqlData} ref={previewRef} />
-                )}
-                {activeReportId === 'sale_si' && (
-                  <SaleSiReportPreview data={saleSiData} ref={previewRef} />
-                )}
-                {activeReportId === 'ql_kenh' && (
-                  <QLKenhReportPreview data={qlKenhData} ref={previewRef} />
-                )}
+                <ReportPreview
+                  data={currentData}
+                  itemsDef={currentChecklist}
+                  reportTitle={activeMeta.reportTitle}
+                  reporterLabel={activeMeta.reporterLabel}
+                  ref={previewRef}
+                />
               </div>
             </div>
           </div>

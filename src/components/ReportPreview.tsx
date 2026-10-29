@@ -1,23 +1,32 @@
 import React, { forwardRef } from 'react';
-import { CHECKLIST_ITEMS, ReportData } from '../types';
+import { CHECKLIST_ITEMS, ChecklistItemDef, ReportData } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { CheckCircle2, XCircle } from 'lucide-react';
 
 interface ReportPreviewProps {
   data: ReportData;
+  itemsDef?: ChecklistItemDef[];
+  reportTitle?: string;
+  reporterLabel?: string;
 }
 
 export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
-  ({ data }, ref) => {
+  (
+    {
+      data,
+      itemsDef = CHECKLIST_ITEMS,
+      reportTitle = 'BÁO CÁO VẬN HÀNH HÀNG NGÀY',
+      reporterLabel = 'Người báo cáo',
+    },
+    ref
+  ) => {
     let formattedDate = '';
     if (data.date) {
       const d = new Date(data.date);
       formattedDate = `${format(d, 'EEEE', { locale: vi })}, ngày ${format(d, 'dd')} tháng ${format(d, 'MM')} năm ${format(d, 'yyyy')}`;
     }
 
-    // Group items by category for the preview
-    const categories = Array.from(new Set(CHECKLIST_ITEMS.map(item => item.category)));
+    const categories = Array.from(new Set(itemsDef.map((item) => item.category)));
 
     return (
       <div
@@ -28,13 +37,13 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
         {/* Header */}
         <div className="text-center mb-8 border-b-2 border-slate-800 pb-6">
           <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900 mb-2">
-            Báo Cáo Vận Hành Hàng Ngày
+            {reportTitle}
           </h1>
           <div className="text-lg font-medium text-slate-700">
             Cơ sở: <span className="font-bold text-slate-900">{data.location || '...'}</span>
           </div>
           <div className="text-sm text-slate-500 mt-1 italic">
-            {formattedDate} - Người báo cáo: <span className="font-medium">{data.reporter || '...'}</span>
+            {formattedDate} - {reporterLabel}: <span className="font-medium">{data.reporter || '...'}</span>
           </div>
         </div>
 
@@ -53,40 +62,48 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
                 <React.Fragment key={category}>
                   {/* Category Header Row */}
                   <tr className="bg-indigo-50">
-                    <td colSpan={3} className="py-2 px-4 font-bold text-indigo-900 uppercase tracking-tight text-xs border-y border-slate-300">
+                    <td
+                      colSpan={3}
+                      className="py-2 px-4 font-bold text-indigo-900 uppercase tracking-tight text-xs border-y border-slate-300"
+                    >
                       {category}
                     </td>
                   </tr>
-                  {CHECKLIST_ITEMS.filter(item => item.category === category).map((def, index) => {
-                    const item = data.items.find((i) => i.id === def.id);
-                    if (!item) return null;
-
-                    return (
-                      <tr key={def.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-200 last:border-b-0">
-                        <td className="py-3 px-4 text-center font-medium text-slate-500 align-top">
-                          {def.id}
-                        </td>
-                        <td className="py-3 px-4 align-top">
-                          <div className="font-semibold text-slate-800">{def.title}</div>
-                        </td>
-                        <td className="py-3 px-4 align-top">
-                          {item.value ? (
-                            <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-                              {item.value}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 italic text-xs">Không có dữ liệu phát sinh</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {itemsDef
+                    .filter((item) => item.category === category)
+                    .map((def) => {
+                      const item = data.items.find((i) => i.id === def.id);
+                      return (
+                        <tr
+                          key={def.id}
+                          className="hover:bg-slate-50/50 transition-colors border-b border-slate-200 last:border-b-0"
+                        >
+                          <td className="py-3 px-4 text-center font-medium text-slate-500 align-top">
+                            {def.id}
+                          </td>
+                          <td className="py-3 px-4 align-top">
+                            <div className="font-semibold text-slate-800">{def.title}</div>
+                          </td>
+                          <td className="py-3 px-4 align-top">
+                            {item && item.value ? (
+                              <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                {item.value}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">
+                                Không có dữ liệu phát sinh
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </React.Fragment>
               ))}
             </tbody>
           </table>
         </div>
-        
+
         {/* Footer */}
         <div className="mt-8 flex justify-between items-end text-sm text-slate-500">
           <div>
