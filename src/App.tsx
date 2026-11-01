@@ -497,13 +497,13 @@ export default function App() {
   // Trang chủ
   if (currentRoute.view === 'home') {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
-        {/* Header Trang Chủ */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col notranslate" translate="no">
+        {/* Header Trang Chủ với Glassmorphism */}
+        <header className="backdrop-blur-md bg-white/80 border-b border-white/60 sticky top-0 z-30 shadow-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center gap-3">
-                <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-xs">
+                <div className="bg-gradient-to-tr from-indigo-600 to-indigo-500 p-2.5 rounded-2xl text-white shadow-md shadow-indigo-500/20">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
@@ -520,7 +520,7 @@ export default function App() {
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}
                 title="Cấu hình Google Sheets Webhook"
-                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200"
+                className="p-2 text-slate-600 hover:text-slate-900 backdrop-blur-md bg-white/70 hover:bg-white rounded-xl transition-all border border-white/80 shadow-2xs"
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -547,7 +547,7 @@ export default function App() {
 
   // Trang Báo Cáo Riêng Biệt: GIỮ NGUYÊN FORM GỐC 100% CỦA TỪNG PROJECT CŨ
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 notranslate" translate="no">
       {/* Header chuẩn giống hệt bản gốc */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

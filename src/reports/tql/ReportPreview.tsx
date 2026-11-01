@@ -38,7 +38,7 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
 
     const isHighlightRow = (colId: string) => {
       return (
-        colId === 'vd_phat_sinh' ||
+        colId === 'vd_phat_sinh_pv' ||
         colId === 'vd_phat_sinh_bia' ||
         colId === 'vd_phat_sinh_mon' ||
         colId === 'ns_nghi_dot_xuat' ||
@@ -51,7 +51,8 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
       <div
         ref={ref}
         id="report-preview-sheet"
-        className="bg-white text-slate-900 p-6 sm:p-7 shadow-lg select-text border border-slate-300 inline-block w-[1160px] min-w-[1160px] box-border"
+        translate="no"
+        className="notranslate bg-white text-slate-900 p-6 sm:p-7 shadow-lg select-text border border-slate-300 inline-block w-[1160px] min-w-[1160px] box-border"
         style={{
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',

@@ -38,24 +38,25 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const categoriesTopRef = useRef<HTMLDivElement>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
-  // Keep sendTime updated with system time automatically
+  // Keep sendTime updated with system time automatically without re-triggering on every keystroke
   useEffect(() => {
     const updateTime = () => {
       const nowTime = getSystemTime();
-      if (data.sendTime !== nowTime) {
+      if (dataRef.current.sendTime !== nowTime) {
         onChange({
-          ...data,
+          ...dataRef.current,
           sendTime: nowTime,
         });
       }
     };
 
-    // Update initially and every 30 seconds
     updateTime();
     const timer = setInterval(updateTime, 30000);
     return () => clearInterval(timer);
-  }, [data, onChange]);
+  }, [onChange]);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => ({
@@ -130,7 +131,7 @@ export function ReportForm({ data, onChange }: ReportFormProps) {
   const totalStoresWithData = STORES.filter((s) => getFilledCount(s.code) > 0).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 notranslate" translate="no">
       {/* Top Header Card: Thông tin chung */}
       <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-2.5 mb-4">
