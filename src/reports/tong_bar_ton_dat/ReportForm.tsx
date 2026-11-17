@@ -3,7 +3,6 @@ import {
   TON_DAT_STORES,
   TonDatStoreCode,
   PRODUCT_GROUPS,
-  ALL_UNIT_COLUMNS,
   TonDatBarReportData,
   createEmptyBranchEntry,
   countBranchFilledFields,
@@ -16,7 +15,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 
 interface ReportFormProps {
@@ -79,25 +77,6 @@ export function ReportForm({
             ...(branchEntry[kind] || {}),
             [unitKey]: val,
           },
-        },
-      },
-    });
-  };
-
-  const handleFillZeroDat = () => {
-    const nextDat = { ...(branchEntry.dat || {}) };
-    ALL_UNIT_COLUMNS.forEach((col) => {
-      if (!nextDat[col.key] || nextDat[col.key].trim() === '') {
-        nextDat[col.key] = '0';
-      }
-    });
-    onChange({
-      ...data,
-      branches: {
-        ...data.branches,
-        [activeBranch]: {
-          ...branchEntry,
-          dat: nextDat,
         },
       },
     });
@@ -251,14 +230,6 @@ export function ReportForm({
           </span>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleFillZeroDat}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Điền 0 ô ĐẶT trống</span>
-            </button>
             <button
               type="button"
               onClick={handleClearBranch}
