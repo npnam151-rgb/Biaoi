@@ -53,16 +53,17 @@ function doGet(e) {
   }
 }
 
-// Tự động cập nhật bảng TH Bar khi đổi ngày ở ô B1 trực tiếp trên Google Sheets
+// Tự động cập nhật bảng TH Bar khi đổi ngày ở ô B1:C1 trực tiếp trên Google Sheets
 function onEdit(e) {
   try {
     if (!e || !e.range) return;
     var sheet = e.range.getSheet();
     if (!sheet || sheet.getName().trim().toLowerCase() !== TON_DAT_SUMMARY_SHEET.toLowerCase()) return;
-    if (e.range.getRow() !== 1 || e.range.getColumn() !== 2) return;
+    if (e.range.getRow() !== 1 || (e.range.getColumn() !== 2 && e.range.getColumn() !== 3)) return;
 
     var ss = e.source || SpreadsheetApp.getActiveSpreadsheet();
-    var dateStr = parseThBarDateInput_(e.range.getValue(), ss);
+    var rawDateVal = sheet.getRange(1, 2).getValue();
+    var dateStr = parseThBarDateInput_(rawDateVal, ss);
     if (!dateStr) return;
 
     var latest = readLatestTonDatForDate_(dateStr);
@@ -976,15 +977,15 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
 
   var tz = ss.getSpreadsheetTimeZone() || "GMT+7";
   var parts = dateStr.split("-");
-  var shortDate = parts.length === 3 ? (parts[2] + "/" + parts[1]) : dateStr;
+  var fullDateLabel = parts.length === 3 ? (parts[2] + "/" + parts[1] + "/" + parts[0]) : dateStr;
   var totalCols = 1 + TON_DAT_UNIT_DEFS.length + 1; // 24 cột (A -> X)
 
-  var dateCellValue = shortDate;
+  var dateCellValue = fullDateLabel;
   if (parts.length === 3) {
     try {
       dateCellValue = Utilities.parseDate(dateStr + " 12:00:00", tz, "yyyy-MM-dd HH:mm:ss");
     } catch (errDate) {
-      dateCellValue = shortDate;
+      dateCellValue = fullDateLabel;
     }
   }
 
@@ -996,7 +997,7 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
   if (!isInitialized) {
     sheet.clear();
 
-    var titleRow = ["NGÀY:", dateCellValue, "BÁO CÁO TỔNG BAR VỀ TỒN VÀ ĐẶT HÀNG CUỐI NGÀY"];
+    var titleRow = ["NGÀY:", dateCellValue, "", "BÁO CÁO TỔNG BAR VỀ TỒN VÀ ĐẶT HÀNG CUỐI NGÀY"];
     while (titleRow.length < totalCols) titleRow.push("");
 
     var prodRow = ["Tên hàng"];
@@ -1010,10 +1011,12 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
 
     sheet.getRange(1, 1, 3, totalCols).setValues([titleRow, prodRow, unitRow]);
 
-    sheet.getRange(1, 3, 1, totalCols - 2).merge();
+    // Gộp B1:C1 cho ngày dd/MM/yyyy và D1:X1 cho tiêu đề chính
+    sheet.getRange(1, 2, 1, 2).merge();
+    sheet.getRange(1, 4, 1, totalCols - 3).merge();
     sheet.getRange(1, 1, 1, totalCols).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
     sheet.getRange(1, 1).setHorizontalAlignment("right");
-    sheet.getRange(1, 3, 1, totalCols - 2).setBackground("#fcd5b4").setHorizontalAlignment("left");
+    sheet.getRange(1, 4, 1, totalCols - 3).setBackground("#fcd5b4").setHorizontalAlignment("left");
 
     var cIdx = 2;
     while (cIdx <= 1 + TON_DAT_UNIT_DEFS.length) {
@@ -1033,18 +1036,23 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
       sheet.getRange(startR, totalCols, 2, 1).merge();
     }
 
-    sheet.setRowHeight(1, 28);
-    sheet.setRowHeight(2, 34);
-    sheet.setRowHeight(3, 26);
     sheet.setFrozenRows(3);
     sheet.setFrozenColumns(1);
   }
 
-  // Cập nhật ô B1 (hiển thị dd/MM và bật lịch chọn ngày khi nhấp đúp)
+  // Đảm bảo chiều cao tiêu đề không bị cắt chữ (giữ nguyên độ rộng cột B1:C1 đã gộp)
+  sheet.setRowHeight(1, 28);
+  sheet.setRowHeight(2, 34);
+  sheet.setRowHeight(3, 26);
+
+  // Cập nhật ô B1:C1: mặc định chuẩn dd/MM/yyyy và giữ nguyên định dạng nếu bạn tự chỉnh sửa thêm
   var dateCell = sheet.getRange(1, 2);
+  var existingFormat = String(dateCell.getNumberFormat() || "").trim();
   dateCell.setValue(dateCellValue);
   if (dateCellValue instanceof Date) {
-    dateCell.setNumberFormat("dd/MM");
+    if (!existingFormat || existingFormat.toLowerCase() === "dd/mm" || existingFormat === "0.##########" || existingFormat === "@") {
+      dateCell.setNumberFormat("dd/MM/yyyy");
+    }
   }
   dateCell.setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
   dateCell.setDataValidation(
