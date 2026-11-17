@@ -53,6 +53,25 @@ function doGet(e) {
   }
 }
 
+// Tự động cập nhật bảng TH Bar khi đổi ngày ở ô B1 trực tiếp trên Google Sheets
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    var sheet = e.range.getSheet();
+    if (!sheet || sheet.getName().trim().toLowerCase() !== TON_DAT_SUMMARY_SHEET.toLowerCase()) return;
+    if (e.range.getRow() !== 1 || e.range.getColumn() !== 2) return;
+
+    var ss = e.source || SpreadsheetApp.getActiveSpreadsheet();
+    var dateStr = parseThBarDateInput_(e.range.getValue(), ss);
+    if (!dateStr) return;
+
+    var latest = readLatestTonDatForDate_(dateStr);
+    renderTonDatSummarySheet_(ss, dateStr, latest.branches);
+  } catch (err) {
+    console.error("onEdit TH Bar error: " + err);
+  }
+}
+
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -954,30 +973,85 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
   if (!sheet) {
     sheet = ss.insertSheet(TON_DAT_SUMMARY_SHEET);
   }
-  sheet.clear();
 
+  var tz = ss.getSpreadsheetTimeZone() || "GMT+7";
   var parts = dateStr.split("-");
   var shortDate = parts.length === 3 ? (parts[2] + "/" + parts[1]) : dateStr;
   var totalCols = 1 + TON_DAT_UNIT_DEFS.length + 1; // 24 cột (A -> X)
 
-  // Dòng 1: NGÀY + Tiêu đề chính
-  var titleRow = ["NGÀY:", shortDate, "BÁO CÁO TỔNG BAR VỀ TỒN VÀ ĐẶT HÀNG CUỐI NGÀY"];
-  while (titleRow.length < totalCols) titleRow.push("");
-  sheet.appendRow(titleRow);
+  var dateCellValue = shortDate;
+  if (parts.length === 3) {
+    try {
+      dateCellValue = Utilities.parseDate(dateStr + " 12:00:00", tz, "yyyy-MM-dd HH:mm:ss");
+    } catch (errDate) {
+      dateCellValue = shortDate;
+    }
+  }
 
-  // Dòng 2 & 3: Tên hàng & ĐVT
-  var prodRow = ["Tên hàng"];
-  var unitRow = ["ĐVT"];
-  TON_DAT_UNIT_DEFS.forEach(function(u) {
-    prodRow.push(u.product);
-    unitRow.push(u.unit);
-  });
-  prodRow.push("Tên nv bar làm báo cáo của CH");
-  unitRow.push("");
-  sheet.appendRow(prodRow);
-  sheet.appendRow(unitRow);
+  var isInitialized =
+    sheet.getLastRow() >= 17 &&
+    String(sheet.getRange(1, 1).getValue()).trim() === "NGÀY:" &&
+    String(sheet.getRange(2, 1).getValue()).trim() === "Tên hàng";
 
-  // Dòng 4 & 5: TỔNG TỒN & TỔNG ĐẶT (công thức SUM)
+  if (!isInitialized) {
+    sheet.clear();
+
+    var titleRow = ["NGÀY:", dateCellValue, "BÁO CÁO TỔNG BAR VỀ TỒN VÀ ĐẶT HÀNG CUỐI NGÀY"];
+    while (titleRow.length < totalCols) titleRow.push("");
+
+    var prodRow = ["Tên hàng"];
+    var unitRow = ["ĐVT"];
+    TON_DAT_UNIT_DEFS.forEach(function(u) {
+      prodRow.push(u.product);
+      unitRow.push(u.unit);
+    });
+    prodRow.push("Tên nv bar làm báo cáo của CH");
+    unitRow.push("");
+
+    sheet.getRange(1, 1, 3, totalCols).setValues([titleRow, prodRow, unitRow]);
+
+    sheet.getRange(1, 3, 1, totalCols - 2).merge();
+    sheet.getRange(1, 1, 1, totalCols).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+    sheet.getRange(1, 1).setHorizontalAlignment("right");
+    sheet.getRange(1, 3, 1, totalCols - 2).setBackground("#fcd5b4").setHorizontalAlignment("left");
+
+    var cIdx = 2;
+    while (cIdx <= 1 + TON_DAT_UNIT_DEFS.length) {
+      if (cIdx + 1 <= 1 + TON_DAT_UNIT_DEFS.length && TON_DAT_UNIT_DEFS[cIdx - 2].product === TON_DAT_UNIT_DEFS[cIdx - 1].product) {
+        sheet.getRange(2, cIdx, 1, 2).merge();
+        cIdx += 2;
+      } else {
+        cIdx += 1;
+      }
+    }
+    sheet.getRange(2, totalCols, 2, 1).merge();
+    sheet.getRange(2, 1, 2, totalCols).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
+    sheet.getRange(3, 2, 1, TON_DAT_UNIT_DEFS.length).setFontStyle("italic");
+
+    for (var s = 0; s < TON_DAT_STORES.length; s++) {
+      var startR = 6 + s * 2;
+      sheet.getRange(startR, totalCols, 2, 1).merge();
+    }
+
+    sheet.setRowHeight(1, 28);
+    sheet.setRowHeight(2, 34);
+    sheet.setRowHeight(3, 26);
+    sheet.setFrozenRows(3);
+    sheet.setFrozenColumns(1);
+  }
+
+  // Cập nhật ô B1 (hiển thị dd/MM và bật lịch chọn ngày khi nhấp đúp)
+  var dateCell = sheet.getRange(1, 2);
+  dateCell.setValue(dateCellValue);
+  if (dateCellValue instanceof Date) {
+    dateCell.setNumberFormat("dd/MM");
+  }
+  dateCell.setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  dateCell.setDataValidation(
+    SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build()
+  );
+
+  // Dòng 4 -> 17: Ghi hàng loạt trong 1 lần để phản hồi tức thì
   var sumTonRow = ["TỔNG TỒN"];
   var sumDatRow = ["TỔNG ĐẶT"];
   for (var i = 0; i < TON_DAT_UNIT_DEFS.length; i++) {
@@ -987,10 +1061,8 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
   }
   sumTonRow.push("");
   sumDatRow.push("");
-  sheet.appendRow(sumTonRow);
-  sheet.appendRow(sumDatRow);
 
-  // Dòng 6 -> 17: 6 chi nhánh x 2 dòng
+  var bodyRows = [sumTonRow, sumDatRow];
   TON_DAT_STORES.forEach(function(code) {
     var b = branches[code] || { staffName: "", ton: {}, dat: {} };
     var rTon = [code + " - TỒN"];
@@ -1001,40 +1073,67 @@ function renderTonDatSummarySheet_(ss, dateStr, branches) {
     });
     rTon.push(b.staffName || "");
     rDat.push("");
-    sheet.appendRow(rTon);
-    sheet.appendRow(rDat);
+    bodyRows.push(rTon);
+    bodyRows.push(rDat);
   });
 
-  // Merge & Định dạng chuẩn mẫu ảnh
-  sheet.getRange(1, 3, 1, totalCols - 2).merge();
-  sheet.getRange(1, 1, 1, totalCols).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
-  sheet.getRange(1, 1).setHorizontalAlignment("right");
-  sheet.getRange(1, 3, 1, totalCols - 2).setBackground("#fcd5b4").setHorizontalAlignment("left");
+  sheet.getRange(4, 1, bodyRows.length, totalCols).setValues(bodyRows);
+  sheet.getRange(4, 1, 2, totalCols).setBackground("#ffff00").setFontWeight("bold");
+  sheet.getRange(4, 1, bodyRows.length, totalCols).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange(1, 1, 17, totalCols).setBorder(true, true, true, true, true, true, "#000000", SpreadsheetApp.BorderStyle.SOLID);
+}
 
-  var cIdx = 2;
-  while (cIdx <= 1 + TON_DAT_UNIT_DEFS.length) {
-    if (cIdx + 1 <= 1 + TON_DAT_UNIT_DEFS.length && TON_DAT_UNIT_DEFS[cIdx - 2].product === TON_DAT_UNIT_DEFS[cIdx - 1].product) {
-      sheet.getRange(2, cIdx, 1, 2).merge();
-      cIdx += 2;
-    } else {
-      cIdx += 1;
+function parseThBarDateInput_(val, ss) {
+  if (!val) return "";
+  var tz = (ss && ss.getSpreadsheetTimeZone()) || "GMT+7";
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return Utilities.formatDate(val, tz, "yyyy-MM-dd");
+  }
+  var s = String(val).trim();
+  if (!s) return "";
+
+  // yyyy-MM-dd hoặc yyyy/MM/dd
+  var isoMatch = s.match(/^(\\d{4})[\\-\\/](\\d{1,2})[\\-\\/](\\d{1,2})/);
+  if (isoMatch) {
+    return isoMatch[1] + "-" + padBar2_(isoMatch[2]) + "-" + padBar2_(isoMatch[3]);
+  }
+
+  // dd/MM/yyyy hoặc dd-MM-yyyy
+  var dmyFull = s.match(/^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})$/);
+  if (dmyFull) {
+    return dmyFull[3] + "-" + padBar2_(dmyFull[2]) + "-" + padBar2_(dmyFull[1]);
+  }
+
+  // dd/MM hoặc dd-MM (không ghi năm -> ưu tiên năm có record khớp trong BC Tồn Đặt Bar)
+  var dmyShort = s.match(/^(\\d{1,2})[\\/\\-](\\d{1,2})$/);
+  if (dmyShort) {
+    var dd = padBar2_(dmyShort[1]);
+    var mm = padBar2_(dmyShort[2]);
+    var year = findLatestYearForMonthDay_(ss, mm, dd) || Utilities.formatDate(new Date(), tz, "yyyy");
+    return year + "-" + mm + "-" + dd;
+  }
+
+  return "";
+}
+
+function findLatestYearForMonthDay_(ss, mm, dd) {
+  if (!ss) return "";
+  var recordSheet = ss.getSheetByName(TON_DAT_RECORD_SHEET);
+  if (!recordSheet || recordSheet.getLastRow() <= 2) return "";
+  var dateCol = recordSheet.getRange(3, 2, recordSheet.getLastRow() - 2, 1).getValues();
+  var suffix = "-" + mm + "-" + dd;
+  for (var i = dateCol.length - 1; i >= 0; i--) {
+    var dStr = normalizeBarDateStr_(dateCol[i][0]);
+    if (dStr.length === 10 && dStr.slice(4) === suffix) {
+      return dStr.slice(0, 4);
     }
   }
-  sheet.getRange(2, totalCols, 2, 1).merge();
-  sheet.getRange(2, 1, 2, totalCols).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
-  sheet.getRange(3, 2, 1, TON_DAT_UNIT_DEFS.length).setFontStyle("italic");
+  return "";
+}
 
-  sheet.getRange(4, 1, 2, totalCols).setBackground("#ffff00").setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
-
-  for (var s = 0; s < TON_DAT_STORES.length; s++) {
-    var startR = 6 + s * 2;
-    sheet.getRange(startR, totalCols, 2, 1).merge();
-  }
-
-  sheet.getRange(4, 1, 14, totalCols).setHorizontalAlignment("center").setVerticalAlignment("middle");
-  sheet.getRange(1, 1, 17, totalCols).setBorder(true, true, true, true, true, true, "#000000", SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setFrozenRows(3);
-  sheet.setFrozenColumns(1);
+function padBar2_(n) {
+  var num = Number(n);
+  return num < 10 ? "0" + num : String(num);
 }
 
 function parseBarCellVal_(val) {
@@ -1048,7 +1147,9 @@ function parseBarCellVal_(val) {
 function normalizeBarDateStr_(val) {
   if (!val) return "";
   if (val instanceof Date) {
-    return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var tz = (ss && ss.getSpreadsheetTimeZone()) || "GMT+7";
+    return Utilities.formatDate(val, tz, "yyyy-MM-dd");
   }
   var s = String(val).trim();
   if (/^\\d{4}-\\d{2}-\\d{2}/.test(s)) return s.substring(0, 10);
