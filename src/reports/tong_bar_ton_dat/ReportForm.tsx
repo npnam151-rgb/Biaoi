@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Settings,
   Sparkles,
 } from 'lucide-react';
 
@@ -28,12 +27,10 @@ interface ReportFormProps {
   onActiveBranchChange: (code: TonDatStoreCode) => void;
   syncStatus: 'idle' | 'loading' | 'synced' | 'error';
   syncMessage: string | null;
-  isDevUrl: boolean;
   onDateChange: (newDate: string) => void;
   onRefreshDate: () => void;
   onSaveCurrentBranch: () => Promise<void>;
   isSavingBranch: boolean;
-  onOpenWebhookSettings: () => void;
 }
 
 const CATEGORIES: Array<(typeof PRODUCT_GROUPS)[number]['category']> = [
@@ -50,12 +47,10 @@ export function ReportForm({
   onActiveBranchChange,
   syncStatus,
   syncMessage,
-  isDevUrl,
   onDateChange,
   onRefreshDate,
   onSaveCurrentBranch,
   isSavingBranch,
-  onOpenWebhookSettings,
 }: ReportFormProps) {
   const branchEntry = data.branches[activeBranch] || createEmptyBranchEntry();
   const activeStoreInfo = TON_DAT_STORES.find((s) => s.code === activeBranch);
@@ -127,23 +122,12 @@ export function ReportForm({
     <div className="space-y-5 notranslate" translate="no">
       {/* 1. Ngày báo cáo & Trạng thái đồng bộ 2 chiều Google Sheets */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Ngày báo cáo &amp; Đồng bộ dữ liệu</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Đổi ngày để tự động tải số liệu đã lưu của cả 6 chi nhánh từ sheet{' '}
-              <strong className="text-slate-700">BC Tồn Đặt Bar</strong>.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenWebhookSettings}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors self-start sm:self-auto whitespace-nowrap shrink-0"
-          >
-            <Settings className="w-3.5 h-3.5 text-slate-500" />
-            <span>Cấu hình Script / Webhook</span>
-          </button>
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Ngày báo cáo &amp; Đồng bộ dữ liệu</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Đổi ngày để tự động tải số liệu đã lưu của cả 6 chi nhánh từ sheet{' '}
+            <strong className="text-slate-700">BC Tồn Đặt Bar</strong>.
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
@@ -193,19 +177,6 @@ export function ReportForm({
               {syncStatus === 'error' && (syncMessage || 'Chưa đọc được dữ liệu từ Apps Script.')}
               {syncStatus === 'idle' && 'Sẵn sàng nhập dữ liệu theo ngày.'}
             </p>
-            {isDevUrl && (
-              <p className="text-[11px] text-amber-800 leading-relaxed">
-                Link Apps Script hiện tại kết thúc bằng <code>/dev</code> (chỉ chủ sở hữu Script mới truy cập được). Hãy mở{' '}
-                <button
-                  type="button"
-                  onClick={onOpenWebhookSettings}
-                  className="underline font-bold text-amber-950 hover:text-indigo-700 cursor-pointer"
-                >
-                  Cấu hình Script / Webhook
-                </button>{' '}
-                để copy mã Apps Script mới và triển khai link <code>/exec</code> (Quyền: Bất kỳ ai) giúp 6 chi nhánh đồng bộ trực tiếp.
-              </p>
-            )}
           </div>
         </div>
       </div>

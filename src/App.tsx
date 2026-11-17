@@ -937,12 +937,10 @@ export default function App() {
                 onActiveBranchChange={setActiveTonDatBranch}
                 syncStatus={tonDatSyncStatus}
                 syncMessage={tonDatSyncMessage}
-                isDevUrl={barTonDatUrl.trim().endsWith('/dev')}
                 onDateChange={handleTonDatDateChange}
                 onRefreshDate={() => fetchTonDatBarByDate(tonDatBarData.date)}
                 onSaveCurrentBranch={handleSaveCurrentTonDatBranch}
                 isSavingBranch={isSavingTonDatBranch}
-                onOpenWebhookSettings={() => setIsSettingsOpen(true)}
               />
             )}
             {activeReportId === 'cx' && (
