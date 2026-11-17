@@ -12,7 +12,6 @@ import {
   Calendar,
   RefreshCw,
   User,
-  Save,
   RotateCcw,
   CheckCircle2,
   AlertCircle,
@@ -29,8 +28,6 @@ interface ReportFormProps {
   syncMessage: string | null;
   onDateChange: (newDate: string) => void;
   onRefreshDate: () => void;
-  onSaveCurrentBranch: () => Promise<void>;
-  isSavingBranch: boolean;
 }
 
 const CATEGORIES: Array<(typeof PRODUCT_GROUPS)[number]['category']> = [
@@ -49,8 +46,6 @@ export function ReportForm({
   syncMessage,
   onDateChange,
   onRefreshDate,
-  onSaveCurrentBranch,
-  isSavingBranch,
 }: ReportFormProps) {
   const branchEntry = data.branches[activeBranch] || createEmptyBranchEntry();
   const activeStoreInfo = TON_DAT_STORES.find((s) => s.code === activeBranch);
@@ -120,18 +115,30 @@ export function ReportForm({
 
   return (
     <div className="space-y-5 notranslate" translate="no">
-      {/* 1. Ngày báo cáo & Trạng thái đồng bộ 2 chiều Google Sheets */}
+      {/* 1. Ngày báo cáo & Tên người nhập */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Ngày báo cáo &amp; Đồng bộ dữ liệu</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Đổi ngày để tự động tải số liệu đã lưu của cả 6 chi nhánh từ sheet{' '}
-            <strong className="text-slate-700">BC Tồn Đặt Bar</strong>.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Thông tin báo cáo &amp; Đồng bộ dữ liệu</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Đổi ngày để tự động tải số liệu đã lưu của cả 6 chi nhánh từ sheet{' '}
+              <strong className="text-slate-700">BC Tồn Đặt Bar</strong>.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onRefreshDate}
+            disabled={syncStatus === 'loading'}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'loading' ? 'animate-spin' : ''}`} />
+            <span>{syncStatus === 'loading' ? 'Đang tải...' : 'Đồng bộ lại ngày này'}</span>
+          </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+          <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-indigo-600" />
               <span>Ngày báo cáo</span>
@@ -144,15 +151,19 @@ export function ReportForm({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={onRefreshDate}
-            disabled={syncStatus === 'loading'}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncStatus === 'loading' ? 'animate-spin' : ''}`} />
-            <span>{syncStatus === 'loading' ? 'Đang tải...' : 'Đồng bộ lại ngày này'}</span>
-          </button>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Tên người nhập ({activeBranch} - {activeStoreInfo?.name})</span>
+            </label>
+            <input
+              type="text"
+              value={branchEntry.staffName || ''}
+              onChange={(e) => handleStaffChange(e.target.value)}
+              placeholder="VD: Kiên, Thắng, Quyết, Phong..."
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            />
+          </div>
         </div>
 
         {/* Trạng thái đồng bộ rõ ràng bằng text + icon */}
@@ -231,68 +242,31 @@ export function ReportForm({
           })}
         </div>
 
-        {/* Tên NV Bar + Công cụ nhanh cho chi nhánh đang chọn */}
-        <div className="pt-3 border-t border-slate-200 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Tên NV Bar ({activeBranch} - {activeStoreInfo?.name})</span>
-              </label>
-              <input
-                type="text"
-                value={branchEntry.staffName || ''}
-                onChange={(e) => handleStaffChange(e.target.value)}
-                placeholder="VD: Kiên, Thắng, Quyết, Phong..."
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-              />
-            </div>
+        {/* Công cụ nhanh cho chi nhánh đang chọn */}
+        <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-slate-500">
+            {branchEntry.updatedAt
+              ? `Cập nhật gần nhất: ${branchEntry.updatedAt}`
+              : 'Chưa có bản ghi đồng bộ từ Sheet cho chi nhánh này'}
+          </span>
 
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onSaveCurrentBranch}
-              disabled={isSavingBranch}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-lg transition-colors disabled:opacity-60 whitespace-nowrap shrink-0 cursor-pointer"
+              onClick={handleFillZeroDat}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
             >
-              {isSavingBranch ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang lưu {activeBranch}...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Lưu riêng {activeBranch} lên Sheet</span>
-                </>
-              )}
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Điền 0 ô ĐẶT trống</span>
             </button>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="text-slate-500">
-              {branchEntry.updatedAt
-                ? `Cập nhật gần nhất: ${branchEntry.updatedAt}`
-                : 'Chưa có bản ghi đồng bộ từ Sheet cho chi nhánh này'}
-            </span>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleFillZeroDat}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Điền 0 ô ĐẶT trống</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleClearBranch}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Xóa {activeBranch}</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleClearBranch}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Xóa {activeBranch}</span>
+            </button>
           </div>
         </div>
       </div>

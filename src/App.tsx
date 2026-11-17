@@ -191,7 +191,6 @@ export default function App() {
   const [activeTonDatBranch, setActiveTonDatBranch] = useState<TonDatStoreCode>('01 ĐD');
   const [tonDatSyncStatus, setTonDatSyncStatus] = useState<'idle' | 'loading' | 'synced' | 'error'>('idle');
   const [tonDatSyncMessage, setTonDatSyncMessage] = useState<string | null>(null);
-  const [isSavingTonDatBranch, setIsSavingTonDatBranch] = useState(false);
 
   // Trạng thái xuất ảnh & lưu Sheet
   const [isExporting, setIsExporting] = useState(false);
@@ -458,26 +457,6 @@ export default function App() {
         setSheetStatus('error');
         return false;
       }
-    }
-  };
-
-  const handleSaveCurrentTonDatBranch = async () => {
-    setIsSavingTonDatBranch(true);
-    setExportError(null);
-    setExportSuccess(false);
-    try {
-      const ok = await saveTonDatBranchesToSheet([activeTonDatBranch]);
-      if (ok) {
-        setTonDatSyncStatus('synced');
-        setTonDatSyncMessage(
-          `Đã gửi record chi nhánh ${activeTonDatBranch} lên BC Tồn Đặt Bar & làm mới bảng TH Bar.`
-        );
-      } else {
-        setExportError(`Không thể lưu chi nhánh ${activeTonDatBranch} lên Google Sheets.`);
-        setTimeout(() => setExportError(null), 5000);
-      }
-    } finally {
-      setIsSavingTonDatBranch(false);
     }
   };
 
@@ -939,8 +918,6 @@ export default function App() {
                 syncMessage={tonDatSyncMessage}
                 onDateChange={handleTonDatDateChange}
                 onRefreshDate={() => fetchTonDatBarByDate(tonDatBarData.date)}
-                onSaveCurrentBranch={handleSaveCurrentTonDatBranch}
-                isSavingBranch={isSavingTonDatBranch}
               />
             )}
             {activeReportId === 'cx' && (
