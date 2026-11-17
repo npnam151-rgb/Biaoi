@@ -3,6 +3,7 @@ export type ReportType =
   | 'bep'
   | 'bar'
   | 'tong_bar'
+  | 'tong_bar_ton_dat'
   | 'cx'
   | 'tql'
   | 'sale_si'
@@ -79,6 +80,20 @@ export const REPORT_TABS: ReportTabMeta[] = [
     color: 'teal',
     category: 'Cơ sở & Vận hành',
     highlights: ['Thời gian đến & đi cơ sở', 'Nhiệt độ kho lạnh, tủ ủ, tủ rót', 'Công tác vận hành & trình độ rót bia', 'Hỏng hóc tồn đọng & sửa chữa trong ngày'],
+  },
+  {
+    id: 'tong_bar_ton_dat',
+    path: '/tong-bar-ton-dat',
+    sheetName: 'BC Tồn Đặt Bar / TH Bar',
+    name: 'CS Báo Cáo Tổng Bar Tồn & Đặt',
+    shortName: 'BC Tồn Đặt Bar',
+    reportTitle: 'BÁO CÁO TỔNG BAR VỀ TỒN VÀ ĐẶT HÀNG CUỐI NGÀY',
+    desc: 'Nhập tồn & đặt 12 nhóm hàng tại 6 chi nhánh theo ngày, tự động đồng bộ & tổng hợp toàn chuỗi',
+    reporterLabel: 'NV Bar báo cáo',
+    reporterPlaceholder: 'VD: Kiên, Thắng, Quyết...',
+    color: 'amber',
+    category: 'Cơ sở & Vận hành',
+    highlights: ['Đồng bộ 2 chiều theo ngày', 'Lưu record BC Tồn Đặt Bar & bảng TH Bar', 'Tự cộng TỔNG TỒN / TỔNG ĐẶT 6 chi nhánh'],
   },
   {
     id: 'cx',
@@ -286,6 +301,7 @@ export const REPORT_CHECKLIST_MAP: Record<ReportType, ChecklistItemDef[]> = {
   bep: BEP_CHECKLIST_ITEMS,
   bar: BAR_CHECKLIST_ITEMS,
   tong_bar: TONG_BAR_CHECKLIST_ITEMS,
+  tong_bar_ton_dat: [],
   cx: CX_CHECKLIST_ITEMS,
   tql: TQL_CHECKLIST_ITEMS,
   sale_si: SALE_SI_CHECKLIST_ITEMS,

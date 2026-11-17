@@ -40,6 +40,19 @@ import { ReportForm as TongBarReportForm } from './reports/tong_bar/ReportForm';
 import { ReportPreview as TongBarReportPreview } from './reports/tong_bar/ReportPreview';
 import { CHECKLIST_ITEMS as TONG_BAR_CHECKLIST_ITEMS, ReportData as TongBarReportData } from './reports/tong_bar/types';
 
+// 3.3. TỔNG BAR TỒN & ĐẶT HÀNG CUỐI NGÀY (2 CHIỀU)
+import { ReportForm as TonDatBarReportForm } from './reports/tong_bar_ton_dat/ReportForm';
+import { ReportPreview as TonDatBarReportPreview } from './reports/tong_bar_ton_dat/ReportPreview';
+import {
+  TonDatBarReportData,
+  TonDatStoreCode,
+  TON_DAT_STORES,
+  ALL_UNIT_COLUMNS,
+  createInitialTonDatBarData,
+  createEmptyBranchEntry,
+  hasBranchData,
+} from './reports/tong_bar_ton_dat/types';
+
 // 4. CX (ORIGINAL CS)
 import { ReportForm as CXReportForm } from './reports/cx/ReportForm';
 import { ReportPreview as CXReportPreview } from './reports/cx/ReportPreview';
@@ -63,7 +76,11 @@ import { TQLReportData, createInitialReportData, STORES, SYSTEM_COLUMNS, STORE_C
 const DEFAULT_WEBHOOK_URL =
   'https://script.google.com/macros/s/AKfycbxWKIm74psex5-61MTbeSZKTyA5_K8GBE2MzZ3iOcn7bu1ekM7NqvGXDOJLmz88iDGQ/exec';
 
+const DEFAULT_BAR_TON_DAT_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbxWKIm74psex5-61MTbeSZKTyA5_K8GBE2MzZ3iOcn7bu1ekM7NqvGXDOJLmz88iDGQ/exec';
+
 const STORAGE_KEY_WEBHOOK = 'bcoi_reports_webhook_url';
+const STORAGE_KEY_BAR_TON_DAT_WEBHOOK = 'bcoi_ton_dat_bar_webhook_url';
 
 // Helper: Phân tích URL hiện tại sang view ('home' hoặc ReportType)
 function getRouteFromLocation(): { view: 'home' | 'report'; reportId?: ReportType } {
@@ -92,6 +109,14 @@ export default function App() {
 
   const [webhookUrl, setWebhookUrl] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEY_WEBHOOK) || DEFAULT_WEBHOOK_URL;
+  });
+  const [barTonDatUrl, setBarTonDatUrl] = useState<string>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_BAR_TON_DAT_WEBHOOK);
+    if (!saved || saved.trim().endsWith('/dev')) {
+      localStorage.setItem(STORAGE_KEY_BAR_TON_DAT_WEBHOOK, DEFAULT_BAR_TON_DAT_WEBHOOK_URL);
+      return DEFAULT_BAR_TON_DAT_WEBHOOK_URL;
+    }
+    return saved;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -159,6 +184,15 @@ export default function App() {
   // 7. TQL (6 cơ sở)
   const [tqlData, setTqlData] = useState<TQLReportData>(createInitialReportData);
 
+  // 8. Tổng Bar Tồn & Đặt hàng cuối ngày (2 chiều theo ngày)
+  const [tonDatBarData, setTonDatBarData] = useState<TonDatBarReportData>(() =>
+    createInitialTonDatBarData(todayStr)
+  );
+  const [activeTonDatBranch, setActiveTonDatBranch] = useState<TonDatStoreCode>('01 ĐD');
+  const [tonDatSyncStatus, setTonDatSyncStatus] = useState<'idle' | 'loading' | 'synced' | 'error'>('idle');
+  const [tonDatSyncMessage, setTonDatSyncMessage] = useState<string | null>(null);
+  const [isSavingTonDatBranch, setIsSavingTonDatBranch] = useState(false);
+
   // Trạng thái xuất ảnh & lưu Sheet
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -202,8 +236,250 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_WEBHOOK, url);
   };
 
+  const handleSaveBarTonDatUrl = (url: string) => {
+    setBarTonDatUrl(url);
+    localStorage.setItem(STORAGE_KEY_BAR_TON_DAT_WEBHOOK, url);
+  };
+
   const activeReportId = currentRoute.reportId || 'van_hanh';
   const activeMeta = REPORT_TABS.find((tab) => tab.id === activeReportId) || REPORT_TABS[0];
+
+  const getCachedTonDatForDate = useCallback((dateStr: string): TonDatBarReportData => {
+    const base = createInitialTonDatBarData(dateStr);
+    try {
+      const raw = localStorage.getItem(`ton_dat_bar_cache_${dateStr}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.branches) {
+          TON_DAT_STORES.forEach((store) => {
+            const b = parsed.branches[store.code];
+            if (b) {
+              const entry = createEmptyBranchEntry(b.staffName || '');
+              ALL_UNIT_COLUMNS.forEach((col) => {
+                entry.ton[col.key] = b.ton?.[col.key] ?? '';
+                entry.dat[col.key] = b.dat?.[col.key] ?? '';
+              });
+              entry.updatedAt = b.updatedAt;
+              base.branches[store.code] = entry;
+            }
+          });
+        }
+      }
+    } catch {
+      // Ignore cache read error
+    }
+    return base;
+  }, []);
+
+  const cacheTonDatForDate = useCallback((dataToCache: TonDatBarReportData) => {
+    try {
+      localStorage.setItem(`ton_dat_bar_cache_${dataToCache.date}`, JSON.stringify(dataToCache));
+    } catch {
+      // Ignore cache write error
+    }
+  }, []);
+
+  const handleTonDatBarChange = useCallback(
+    (nextData: TonDatBarReportData) => {
+      setTonDatBarData(nextData);
+      cacheTonDatForDate(nextData);
+    },
+    [cacheTonDatForDate]
+  );
+
+  const fetchTonDatBarByDate = useCallback(
+    async (targetDate: string) => {
+      if (!targetDate) return;
+      // Nạp bản cache cục bộ trước để giao diện phản hồi ngay lập tức
+      const cached = getCachedTonDatForDate(targetDate);
+      setTonDatBarData(cached);
+
+      const endpoint = (barTonDatUrl || '').trim();
+      if (!endpoint) {
+        setTonDatSyncStatus('error');
+        setTonDatSyncMessage('Chưa cấu hình link Google Apps Script cho BC Tồn Đặt Bar.');
+        return;
+      }
+
+      setTonDatSyncStatus('loading');
+      setTonDatSyncMessage(null);
+
+      try {
+        const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}action=getTonDatBar&date=${encodeURIComponent(
+          targetDate
+        )}&_t=${Date.now()}`;
+        const res = await fetch(url, {
+          method: 'GET',
+          redirect: 'follow',
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const text = await res.text();
+        let json: any = null;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error('Phản hồi không phải JSON hợp lệ (có thể do link /dev hoặc chưa cập nhật hàm doGet).');
+        }
+
+        if (json && json.status === 'success' && json.branches) {
+          const merged = createInitialTonDatBarData(targetDate);
+          let syncedCount = 0;
+          TON_DAT_STORES.forEach((store) => {
+            const remote = json.branches[store.code];
+            const entry = createEmptyBranchEntry(remote?.staffName || '');
+            ALL_UNIT_COLUMNS.forEach((col) => {
+              entry.ton[col.key] = remote?.ton?.[col.key] !== undefined ? String(remote.ton[col.key]) : '';
+              entry.dat[col.key] = remote?.dat?.[col.key] !== undefined ? String(remote.dat[col.key]) : '';
+            });
+            entry.updatedAt = remote?.updatedAt || '';
+            if (hasBranchData(entry)) syncedCount += 1;
+            merged.branches[store.code] = entry;
+          });
+
+          setTonDatBarData(merged);
+          cacheTonDatForDate(merged);
+          setTonDatSyncStatus('synced');
+          const [y, m, d] = targetDate.split('-');
+          const dLabel = y && m && d ? `${d}/${m}/${y}` : targetDate;
+          setTonDatSyncMessage(
+            `Đã đồng bộ ngày ${dLabel} từ sheet BC Tồn Đặt Bar (${syncedCount}/6 chi nhánh đã có số liệu).`
+          );
+        } else {
+          throw new Error(json?.message || 'Apps Script chưa trả về dữ liệu hợp lệ.');
+        }
+      } catch (err) {
+        console.warn('Sync GET BC Tồn Đặt Bar error:', err);
+        setTonDatSyncStatus('error');
+        setTonDatSyncMessage(
+          endpoint.endsWith('/dev')
+            ? 'Không thể đọc tự động qua link /dev. Đang dùng dữ liệu lưu tạm trên máy này.'
+            : 'Chưa kết nối được hàm doGet trên Apps Script để đọc ngày này (đang dùng bản lưu tạm cục bộ).'
+        );
+      }
+    },
+    [barTonDatUrl, cacheTonDatForDate, getCachedTonDatForDate]
+  );
+
+  useEffect(() => {
+    if (currentRoute.view === 'report' && activeReportId === 'tong_bar_ton_dat') {
+      fetchTonDatBarByDate(tonDatBarData.date);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRoute.view, activeReportId, barTonDatUrl]);
+
+  const handleTonDatDateChange = (newDate: string) => {
+    if (!newDate) return;
+    fetchTonDatBarByDate(newDate);
+  };
+
+  const saveTonDatBranchesToSheet = async (branchesToSubmit: TonDatStoreCode[]): Promise<boolean> => {
+    const endpoint = (barTonDatUrl || '').trim();
+    if (!endpoint) return false;
+
+    const submissions = branchesToSubmit.map((code) => {
+      const entry = tonDatBarData.branches[code] || createEmptyBranchEntry();
+      return {
+        branchCode: code,
+        staffName: entry.staffName || '',
+        ton: entry.ton || {},
+        dat: entry.dat || {},
+      };
+    });
+
+    const payload = {
+      sheetName: 'BC Tồn Đặt Bar',
+      summarySheetName: 'TH Bar',
+      action: 'saveTonDatBar',
+      date: tonDatBarData.date,
+      submissions,
+    };
+
+    cacheTonDatForDate(tonDatBarData);
+
+    try {
+      setSheetStatus('saving');
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (json && json.status === 'success' && json.branches) {
+            const merged = createInitialTonDatBarData(tonDatBarData.date);
+            TON_DAT_STORES.forEach((store) => {
+              const remote = json.branches[store.code];
+              const local = tonDatBarData.branches[store.code];
+              const useSource = remote && hasBranchData(remote) ? remote : local;
+              const entry = createEmptyBranchEntry(useSource?.staffName || '');
+              ALL_UNIT_COLUMNS.forEach((col) => {
+                entry.ton[col.key] = useSource?.ton?.[col.key] !== undefined ? String(useSource.ton[col.key]) : '';
+                entry.dat[col.key] = useSource?.dat?.[col.key] !== undefined ? String(useSource.dat[col.key]) : '';
+              });
+              entry.updatedAt = remote?.updatedAt || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              merged.branches[store.code] = entry;
+            });
+            setTonDatBarData(merged);
+            cacheTonDatForDate(merged);
+            setTonDatSyncStatus('synced');
+            setTonDatSyncMessage(`Đã lưu vào BC Tồn Đặt Bar & cập nhật bảng TH Bar cho ngày ${tonDatBarData.date}.`);
+          }
+        } catch {
+          // Non-JSON response ignored
+        }
+      }
+      setSheetStatus('success');
+      return true;
+    } catch (err) {
+      console.warn('POST with CORS failed, retrying no-cors fallback:', err);
+      try {
+        await fetch(endpoint, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify(payload),
+        });
+        setSheetStatus('success');
+        return true;
+      } catch (innerErr) {
+        console.error('Failed to save BC Tồn Đặt Bar:', innerErr);
+        setSheetStatus('error');
+        return false;
+      }
+    }
+  };
+
+  const handleSaveCurrentTonDatBranch = async () => {
+    setIsSavingTonDatBranch(true);
+    setExportError(null);
+    setExportSuccess(false);
+    try {
+      const ok = await saveTonDatBranchesToSheet([activeTonDatBranch]);
+      if (ok) {
+        setTonDatSyncStatus('synced');
+        setTonDatSyncMessage(
+          `Đã gửi record chi nhánh ${activeTonDatBranch} lên BC Tồn Đặt Bar & làm mới bảng TH Bar.`
+        );
+      } else {
+        setExportError(`Không thể lưu chi nhánh ${activeTonDatBranch} lên Google Sheets.`);
+        setTimeout(() => setExportError(null), 5000);
+      }
+    } finally {
+      setIsSavingTonDatBranch(false);
+    }
+  };
 
   // Helper map location
   const mapLocation = (raw: string) => {
@@ -223,6 +499,10 @@ export default function App() {
 
   // Google Sheets Save theo đúng định dạng nguyên bản của từng project
   const saveToGoogleSheets = async (): Promise<boolean> => {
+    if (activeReportId === 'tong_bar_ton_dat') {
+      return saveTonDatBranchesToSheet([activeTonDatBranch]);
+    }
+
     if (!webhookUrl) {
       console.log('Chưa cấu hình Google Sheets Webhook URL.');
       return false;
@@ -460,6 +740,7 @@ export default function App() {
       else if (activeReportId === 'bep') locationOrTarget = bepData.location || 'CoSo';
       else if (activeReportId === 'bar') locationOrTarget = barData.location || 'CoSo';
       else if (activeReportId === 'tong_bar') locationOrTarget = tongBarData.location || 'CoSo';
+      else if (activeReportId === 'tong_bar_ton_dat') locationOrTarget = `${activeTonDatBranch}_${tonDatBarData.date}`;
       else if (activeReportId === 'cx') locationOrTarget = cxData.location || 'CoSo';
       else if (activeReportId === 'sale_si') locationOrTarget = saleSiData.restaurantName || 'DiemBan';
       else if (activeReportId === 'tql') locationOrTarget = 'ToanChuoi';
@@ -540,6 +821,9 @@ export default function App() {
           currentUrl={webhookUrl}
           onSave={handleSaveWebhookUrl}
           defaultUrl={DEFAULT_WEBHOOK_URL}
+          barTonDatUrl={barTonDatUrl}
+          onSaveBarTonDatUrl={handleSaveBarTonDatUrl}
+          defaultBarTonDatUrl={DEFAULT_BAR_TON_DAT_WEBHOOK_URL}
         />
       </div>
     );
@@ -645,6 +929,22 @@ export default function App() {
             {activeReportId === 'tong_bar' && (
               <TongBarReportForm data={tongBarData} onChange={setTongBarData} />
             )}
+            {activeReportId === 'tong_bar_ton_dat' && (
+              <TonDatBarReportForm
+                data={tonDatBarData}
+                onChange={handleTonDatBarChange}
+                activeBranch={activeTonDatBranch}
+                onActiveBranchChange={setActiveTonDatBranch}
+                syncStatus={tonDatSyncStatus}
+                syncMessage={tonDatSyncMessage}
+                isDevUrl={barTonDatUrl.trim().endsWith('/dev')}
+                onDateChange={handleTonDatDateChange}
+                onRefreshDate={() => fetchTonDatBarByDate(tonDatBarData.date)}
+                onSaveCurrentBranch={handleSaveCurrentTonDatBranch}
+                isSavingBranch={isSavingTonDatBranch}
+                onOpenWebhookSettings={() => setIsSettingsOpen(true)}
+              />
+            )}
             {activeReportId === 'cx' && (
               <CXReportForm data={cxData} onChange={setCxData} />
             )}
@@ -677,7 +977,13 @@ export default function App() {
             </div>
 
             <div className="bg-slate-200 p-2 sm:p-4 rounded-2xl overflow-x-auto shadow-inner border border-slate-300">
-              <div className="w-[800px] min-w-[800px] mx-auto">
+              <div
+                className={
+                  activeReportId === 'tql'
+                    ? 'w-[1160px] min-w-[1160px] mx-auto'
+                    : 'w-[800px] min-w-[800px] mx-auto'
+                }
+              >
                 {activeReportId === 'van_hanh' && (
                   <VHReportPreview data={vanHanhData} ref={previewRef} />
                 )}
@@ -689,6 +995,13 @@ export default function App() {
                 )}
                 {activeReportId === 'tong_bar' && (
                   <TongBarReportPreview data={tongBarData} ref={previewRef} />
+                )}
+                {activeReportId === 'tong_bar_ton_dat' && (
+                  <TonDatBarReportPreview
+                    data={tonDatBarData}
+                    activeBranch={activeTonDatBranch}
+                    ref={previewRef}
+                  />
                 )}
                 {activeReportId === 'cx' && (
                   <CXReportPreview data={cxData} ref={previewRef} />
@@ -744,6 +1057,9 @@ export default function App() {
         currentUrl={webhookUrl}
         onSave={handleSaveWebhookUrl}
         defaultUrl={DEFAULT_WEBHOOK_URL}
+        barTonDatUrl={barTonDatUrl}
+        onSaveBarTonDatUrl={handleSaveBarTonDatUrl}
+        defaultBarTonDatUrl={DEFAULT_BAR_TON_DAT_WEBHOOK_URL}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import iconVanHanh from '../assets/images/icon_van_hanh_1793262711841.jpg';
 import iconBep from '../assets/images/icon_bep_1793262728394.jpg';
 import iconBar from '../assets/images/icon_bar_1793262729179.jpg';
 import iconTongBar from '../assets/images/icon_tong_bar_1793262729819.jpg';
+import iconTongBarTonDat from '../assets/images/icon_tong_bar_ton_dat_1794881424693.jpg';
 import iconCx from '../assets/images/icon_cx_1793262745135.jpg';
 import iconTql from '../assets/images/icon_tql_1793262745426.jpg';
 import iconSaleSi from '../assets/images/icon_sale_si_1793262748009.jpg';
@@ -28,6 +29,7 @@ export const REPORT_3D_ICONS: Record<ReportType, string> = {
   bep: iconBep,
   bar: iconBar,
   tong_bar: iconTongBar,
+  tong_bar_ton_dat: iconTongBarTonDat,
   cx: iconCx,
   tql: iconTql,
   sale_si: iconSaleSi,
@@ -168,7 +170,7 @@ export function HomePage({ onSelectReport }: HomePageProps) {
             <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-200">
               <div className="flex items-center gap-1.5 backdrop-blur-md bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/15 shadow-2xs">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span className="font-medium">8 Phân hệ 3D trực quan</span>
+                <span className="font-medium">9 Phân hệ 3D trực quan</span>
               </div>
               <div className="flex items-center gap-1.5 backdrop-blur-md bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/15 shadow-2xs">
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
